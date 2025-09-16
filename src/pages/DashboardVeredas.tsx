@@ -246,27 +246,27 @@ export default function DashboardVeredas() {
         </div>        
 
         {/* Filtros */}
-        <div className="card" style={{ marginTop: 16 }}>
+        <div className="card" style={{ marginTop: 16, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto' }}>
           <div className="card-hd">Filtros</div>
           <div className="card-bd">
             <div className="grid-3">
               <div>
                 <div style={{ fontSize: 12, opacity: .7, marginBottom: 4 }}>Municipio</div>
-                <select value={municipio} onChange={(e) => { setMunicipio(e.target.value); setVereda(""); }}>
+                <select value={municipio} onChange={(e) => { setMunicipio(e.target.value); setVereda(""); }} disabled={!rows.length}>
                   <option value={ALL_VALUE}>Todos</option>
                   {municipios.map((m) => (<option key={m} value={m}>{m}</option>))}
                 </select>
               </div>
               <div>
                 <div style={{ fontSize: 12, opacity: .7, marginBottom: 4 }}>Vereda</div>
-                <select value={vereda} onChange={(e) => setVereda(e.target.value)}>
+                <select value={vereda} onChange={(e) => setVereda(e.target.value)} disabled={!rows.length}>
                   <option value="" disabled>{veredas.length ? "Selecciona vereda" : "Sube un Excel"}</option>
                   {veredas.map((v) => (<option key={v} value={v}>{v}</option>))}
                 </select>
               </div>
               <div>
                 <div style={{ fontSize: 12, opacity: .7, marginBottom: 4 }}>Año</div>
-                <select value={dpYear} onChange={(e) => setDpYear(e.target.value)}>
+                <select value={dpYear} onChange={(e) => setDpYear(e.target.value)} disabled={!rows.length}>
                   {years.map((y) => (<option key={y} value={y}>{y}</option>))}
                 </select>
               </div>
@@ -274,8 +274,8 @@ export default function DashboardVeredas() {
           </div>
         </div>
 
-        {/* Información relevante */}
-        <div className="card" style={{ marginTop: 16 }}>
+  {/* Información relevante */}
+  <div className="card" style={{ marginTop: 16, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto' }}>
           <div className="card-hd"><Info size={16} style={{marginRight:8}}/> Información relevante</div>
           <div className="card-bd">
             {!rows.length ? (
@@ -295,8 +295,8 @@ export default function DashboardVeredas() {
           </div>
         </div>
 
-        {/* Línea */}
-        <div className="card" style={{ marginTop: 16 }}>
+  {/* Línea */}
+  <div className="card" style={{ marginTop: 16, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto' }}>
           <div className="card-hd">Población proyectada por años
             <span style={{ float: "right" }}>
               <button className="btn" disabled={!lineRef.current} onClick={() => downloadAsJPG(lineRef, `poblacion_${vereda || "vereda"}`)}>
@@ -322,8 +322,8 @@ export default function DashboardVeredas() {
           </div>
         </div>
 
-        {/* Barras */}
-        <div className="card" style={{ marginTop: 16 }}>
+  {/* Barras */}
+  <div className="card" style={{ marginTop: 16, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto' }}>
           <div className="card-hd">Densidad poblacional por año (hab/km²)
             <span style={{ float: "right" }}>
               <button className="btn" disabled={!barRef.current} onClick={() => downloadAsJPG(barRef, `densidad_${vereda || "vereda"}`)}>
@@ -349,8 +349,8 @@ export default function DashboardVeredas() {
           </div>
         </div>
 
-        {/* Pie */}
-        <div className="card" style={{ marginTop: 16, marginBottom: 24 }}>
+  {/* Pie */}
+  <div className="card" style={{ marginTop: 16, marginBottom: 24, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto' }}>
           <div className="card-hd">Distribución de calificación de densidad (global)
             <span style={{ float: "right" }}>
               <button className="btn" disabled={!pieRef.current} onClick={() => downloadAsJPG(pieRef, `calificacion_global`)}>
