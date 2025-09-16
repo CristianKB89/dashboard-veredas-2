@@ -245,6 +245,63 @@ export default function DashboardVeredas() {
           </div>
         </div>        
 
+        {/* Pie */}
+        <div className="card" style={{ marginTop: 16, marginBottom: 24, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto', boxShadow: '0 4px 24px 0 rgba(80,100,200,0.10)' }}>
+          <div className="card-hd">Distribución de calificación de densidad (general)
+            <span style={{ float: "right" }}>
+              <button className="btn" disabled={!pieRef.current} onClick={() => downloadAsJPG(pieRef, `calificacion_global`)}>
+                <Download size={16}/> Descargar JPG
+              </button>
+            </span>
+          </div>
+          <div className="card-bd">
+            <div ref={pieRef} className="chart" style={{ background: dark ? 'linear-gradient(135deg,#181e2a 60%,#232b3e 100%)' : 'linear-gradient(135deg,#f3f6fd 60%,#e0e7ff 100%)', boxShadow: '0 2px 16px 0 rgba(80,100,200,0.10)' }}>
+              {pieData.length ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      label={(props: any) => {
+                        const { cx, cy, midAngle, outerRadius, name, value } = props;
+                        if (
+                          typeof cx === 'number' &&
+                          typeof cy === 'number' &&
+                          typeof midAngle === 'number' &&
+                          typeof outerRadius === 'number' &&
+                          typeof name === 'string' &&
+                          typeof value === 'number'
+                        ) {
+                          const RADIAN = Math.PI / 180;
+                          const radius = outerRadius + 18;
+                          const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                          const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                          return (
+                            <text x={x} y={y} fill="#6366f1" fontSize={13} fontWeight={700} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
+                              {name}: {value.toLocaleString()}
+                            </text>
+                          );
+                        }
+                        return null;
+                      }}
+                      outerRadius={110}
+                      isAnimationActive={true}
+                      animationDuration={900}
+                    >
+                      {pieData.map((_, idx) => (
+                        <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{background: tooltipBg, border:`1px solid ${gridColor}`, borderRadius:8, fontWeight:600}} labelStyle={{color: tooltipText}} itemStyle={{color: tooltipText}} formatter={(v: number) => Number(v).toLocaleString()}/>
+                    <Legend wrapperStyle={{ color: legendColor, fontWeight: 700, fontSize: 15 }} iconType="circle"/>
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : <div style={{opacity:.6, textAlign:"center", paddingTop:80}}>Sube un Excel para ver la distribución</div>}
+            </div>
+          </div>
+        </div>
+
         {/* Filtros */}
         <div className="card" style={{ marginTop: 16, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto' }}>
           <div className="card-hd">Filtros</div>
@@ -253,13 +310,12 @@ export default function DashboardVeredas() {
               <div>
                 <div style={{ fontSize: 12, opacity: .7, marginBottom: 4 }}>Municipio</div>
                 <select value={municipio} onChange={(e) => { setMunicipio(e.target.value); setVereda(""); }} disabled={!rows.length}>
-                  <option value={ALL_VALUE}>Todos</option>
                   {municipios.map((m) => (<option key={m} value={m}>{m}</option>))}
                 </select>
               </div>
               <div>
                 <div style={{ fontSize: 12, opacity: .7, marginBottom: 4 }}>Vereda</div>
-                <select value={vereda} onChange={(e) => setVereda(e.target.value)} disabled={!rows.length}>
+                <select value={vereda} onChange={(e) => setVereda(e.target.value)} disabled={!rows.length || !municipio}>
                   <option value="" disabled>{veredas.length ? "Selecciona vereda" : "Sube un Excel"}</option>
                   {veredas.map((v) => (<option key={v} value={v}>{v}</option>))}
                 </select>
@@ -283,7 +339,7 @@ export default function DashboardVeredas() {
             ) : !aggregatedRow ? (
               <div style={{ opacity:.7 }}>Selecciona una vereda para ver detalles.</div>
             ) : (
-              <div className="kpis">
+              <div className="kpis kpis-2x3">
                 <div className="kpi"><label>Municipio</label><div className="val">{aggregatedRow["Municipio"] ?? ""}</div></div>
                 <div className="kpi"><label>Área vereda (km²)</label><div className="val">{Number(aggregatedRow["Área vereda en km2"]).toLocaleString()}</div></div>
                 <div className="kpi"><label>Tasa de Crecimiento Poblacional (R)</label><div className="val">{(Number(aggregatedRow["R"]) * 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}%</div></div>
@@ -295,9 +351,15 @@ export default function DashboardVeredas() {
           </div>
         </div>
 
-  {/* Línea */}
-  <div className="card" style={{ marginTop: 16, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto' }}>
-          <div className="card-hd">Población proyectada por años
+        {/* Línea */}
+        <div className="card" style={{ marginTop: 16, boxShadow: '0 4px 24px 0 rgba(80,100,200,0.10)', opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto' }}>
+          <div className="card-hd">
+            Población proyectada por años
+            {municipio && municipio !== ALL_VALUE && vereda ? (
+              <span style={{ fontWeight: 400, fontSize: 15, marginLeft: 8, color: '#6366f1' }}>
+                ({municipio} – {vereda})
+              </span>
+            ) : null}
             <span style={{ float: "right" }}>
               <button className="btn" disabled={!lineRef.current} onClick={() => downloadAsJPG(lineRef, `poblacion_${vereda || "vereda"}`)}>
                 <Download size={16}/> Descargar JPG
@@ -305,16 +367,90 @@ export default function DashboardVeredas() {
             </span>
           </div>
           <div className="card-bd">
-            <div ref={lineRef} className="chart">
+            <div ref={lineRef} className="chart" style={{ position: 'relative', background: dark ? 'linear-gradient(135deg,#181e2a 60%,#232b3e 100%)' : 'linear-gradient(135deg,#f3f6fd 60%,#e0e7ff 100%)', boxShadow: '0 2px 16px 0 rgba(80,100,200,0.10)' }}>
+              {municipio && municipio !== ALL_VALUE && vereda ? (
+                <div style={{
+                  position: 'absolute',
+                  top: 12,
+                  left: 0,
+                  width: '100%',
+                  textAlign: 'center',
+                  fontWeight: 700,
+                  fontSize: 18,
+                  color: '#6366f1',
+                  zIndex: 2,
+                  pointerEvents: 'none',
+                  textShadow: dark ? '0 2px 8px #181e2a' : '0 2px 8px #e0e7ff'
+                }}>
+                  {municipio} – {vereda}
+                </div>
+              ) : null}
               {lineData.length ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={lineData} margin={{ top: 16, right: 24, left: 0, bottom: 0 }}>
+                  <LineChart data={lineData} margin={{ top: 40, right: 24, left: 40, bottom: 32 }}>
+                    <defs>
+                      <linearGradient id="colorPop" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.9}/>
+                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0.6}/>
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid stroke={gridColor} strokeDasharray="3 3" />
-                    <XAxis dataKey="year" stroke={axisColor} tick={{ fill: axisColor, fontSize: 12 }}/>
-                    <YAxis stroke={axisColor} tick={{ fill: axisColor, fontSize: 12 }} tickFormatter={(v: number) => Math.round(v).toLocaleString()}/>
-                    <Tooltip contentStyle={{background: tooltipBg, border:`1px solid ${gridColor}`}} labelStyle={{color: tooltipText}} itemStyle={{color: tooltipText}} formatter={(v: number) => Math.round(v).toLocaleString()}/>
-                    <Legend wrapperStyle={{ color: legendColor }} />
-                    <Line type="monotone" dataKey="value" name="Población" dot stroke="#60a5fa"/>
+                    <XAxis
+                      dataKey="year"
+                      stroke={axisColor}
+                      tick={{ fill: axisColor, fontSize: 13, fontWeight: 600 }}
+                      label={{
+                        value: 'Año',
+                        position: 'insideBottom',
+                        offset: -4,
+                        fill: axisColor,
+                        fontSize: 14,
+                        fontWeight: 700
+                      }}
+                    />
+                    <YAxis
+                      stroke={axisColor}
+                      tick={{ fill: axisColor, fontSize: 13, fontWeight: 600 }}
+                      tickFormatter={(v: number) => Math.round(v).toLocaleString()}
+                      label={{
+                        value: 'Población',
+                        angle: -90,
+                        position: 'insideLeft',
+                        fill: axisColor,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        dx: -8
+                      }}
+                    />
+                    <Tooltip contentStyle={{background: tooltipBg, border:`1px solid ${gridColor}`, borderRadius:8, fontWeight:600}} labelStyle={{color: tooltipText}} itemStyle={{color: tooltipText}} formatter={(v: number) => Math.round(v).toLocaleString()}/>
+                    {/* <Legend wrapperStyle={{ color: legendColor, fontWeight: 700, fontSize: 15 }} iconType="circle"/> */}
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      name="Población"
+                      stroke="url(#colorPop)"
+                      strokeWidth={3}
+                      dot={{ r: 6, fill: '#fff', stroke: '#6366f1', strokeWidth: 3, filter: 'drop-shadow(0 2px 6px #6366f155)' }}
+                      activeDot={{ r: 8, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                      isAnimationActive={true}
+                      animationDuration={900}
+                      label={({ x, y, value }) => {
+                        if (
+                          typeof x === 'number' &&
+                          typeof y === 'number' &&
+                          typeof value === 'number' &&
+                          !isNaN(value) &&
+                          value > 0
+                        ) {
+                          return (
+                            <text x={x} y={y - 12} fill="#6366f1" fontSize={13} fontWeight={700} textAnchor="middle">
+                              {value.toLocaleString()}
+                            </text>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               ) : <div style={{opacity:.6, textAlign:"center", paddingTop:80}}>Sin datos (selecciona vereda)</div>}
@@ -322,9 +458,15 @@ export default function DashboardVeredas() {
           </div>
         </div>
 
-  {/* Barras */}
-  <div className="card" style={{ marginTop: 16, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto' }}>
-          <div className="card-hd">Densidad poblacional por año (hab/km²)
+        {/* Barras */}
+        <div className="card" style={{ marginTop: 16, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto', boxShadow: '0 4px 24px 0 rgba(80,100,200,0.10)' }}>
+          <div className="card-hd">
+            Densidad poblacional por año (hab/km²)
+            {municipio && municipio !== ALL_VALUE && vereda ? (
+              <span style={{ fontWeight: 400, fontSize: 15, marginLeft: 8, color: '#34d399' }}>
+                ({municipio} – {vereda})
+              </span>
+            ) : null}
             <span style={{ float: "right" }}>
               <button className="btn" disabled={!barRef.current} onClick={() => downloadAsJPG(barRef, `densidad_${vereda || "vereda"}`)}>
                 <Download size={16}/> Descargar JPG
@@ -332,47 +474,75 @@ export default function DashboardVeredas() {
             </span>
           </div>
           <div className="card-bd">
-            <div ref={barRef} className="chart">
+            <div ref={barRef} className="chart" style={{ position: 'relative', background: dark ? 'linear-gradient(135deg,#181e2a 60%,#232b3e 100%)' : 'linear-gradient(135deg,#f3f6fd 60%,#e0e7ff 100%)', boxShadow: '0 2px 16px 0 rgba(80,100,200,0.10)' }}>
+              {municipio && municipio !== ALL_VALUE && vereda ? (
+                <div style={{
+                  position: 'absolute',
+                  top: 12,
+                  left: 0,
+                  width: '100%',
+                  textAlign: 'center',
+                  fontWeight: 700,
+                  fontSize: 18,
+                  color: '#34d399',
+                  zIndex: 2,
+                  pointerEvents: 'none',
+                  textShadow: dark ? '0 2px 8px #181e2a' : '0 2px 8px #e0e7ff'
+                }}>
+                  {municipio} – {vereda}
+                </div>
+              ) : null}
               {barData.length ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData} margin={{ top: 16, right: 24, left: 0, bottom: 0 }}>
+                  <BarChart data={barData} margin={{ top: 40, right: 24, left: 40, bottom: 32 }}>
+                    <defs>
+                      <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#34d399" stopOpacity={0.9}/>
+                        <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.7}/>
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid stroke={gridColor} strokeDasharray="3 3"/>
-                    <XAxis dataKey="year" stroke={axisColor} tick={{ fill: axisColor, fontSize: 12 }}/>
-                    <YAxis stroke={axisColor} tick={{ fill: axisColor, fontSize: 12 }}/>
-                    <Tooltip contentStyle={{background: tooltipBg, border:`1px solid ${gridColor}`}} labelStyle={{color: tooltipText}} itemStyle={{color: tooltipText}} formatter={(v: number) => `${Number(v).toLocaleString()} hab/km²`}/>
-                    <Legend wrapperStyle={{ color: legendColor }} />
-                    <Bar dataKey="value" name="Densidad" fill="#34d399"/>
+                    <XAxis
+                      dataKey="year"
+                      stroke={axisColor}
+                      tick={{ fill: axisColor, fontSize: 13, fontWeight: 600 }}
+                      label={{
+                        value: 'Año',
+                        position: 'insideBottom',
+                        offset: -4,
+                        fill: axisColor,
+                        fontSize: 14,
+                        fontWeight: 700
+                      }}
+                    />
+                    <YAxis
+                      stroke={axisColor}
+                      tick={{ fill: axisColor, fontSize: 13, fontWeight: 600 }}
+                      label={{
+                        value: 'Densidad (hab/km²)',
+                        angle: -90,
+                        position: 'insideLeft',
+                        fill: axisColor,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        dx: -8
+                      }}
+                    />
+                    <Tooltip contentStyle={{background: tooltipBg, border:`1px solid ${gridColor}`, borderRadius:8, fontWeight:600}} labelStyle={{color: tooltipText}} itemStyle={{color: tooltipText}} formatter={(v: number) => `${Math.round(Number(v)).toLocaleString()} hab/km²`}/>
+                    {/* <Legend wrapperStyle={{ color: legendColor, fontWeight: 700, fontSize: 15 }} iconType="rect" /> */}
+                    <Bar dataKey="value" name="Densidad" fill="url(#colorBar)" radius={[8,8,0,0]} isAnimationActive={true} animationDuration={900} label={({ x, y, width, value }) => {
+                      if (typeof x === 'number' && typeof y === 'number' && typeof width === 'number' && typeof value === 'number' && !isNaN(value) && value > 0) {
+                        return (
+                          <text x={x + width / 2} y={y - 8} fill="#06b6d4" fontSize={13} fontWeight={700} textAnchor="middle">
+                            {Math.round(value).toLocaleString()}
+                          </text>
+                        );
+                      }
+                      return null;
+                    }} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : <div style={{opacity:.6, textAlign:"center", paddingTop:80}}>Sin datos (selecciona vereda)</div>}
-            </div>
-          </div>
-        </div>
-
-  {/* Pie */}
-  <div className="card" style={{ marginTop: 16, marginBottom: 24, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto' }}>
-          <div className="card-hd">Distribución de calificación de densidad (global)
-            <span style={{ float: "right" }}>
-              <button className="btn" disabled={!pieRef.current} onClick={() => downloadAsJPG(pieRef, `calificacion_global`)}>
-                <Download size={16}/> Descargar JPG
-              </button>
-            </span>
-          </div>
-          <div className="card-bd">
-            <div ref={pieRef} className="chart">
-              {pieData.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" label outerRadius={110}>
-                      {pieData.map((_, idx) => (
-                        <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{background: tooltipBg, border:`1px solid ${gridColor}`}} labelStyle={{color: tooltipText}} itemStyle={{color: tooltipText}} formatter={(v: number) => Number(v).toLocaleString()}/>
-                    <Legend wrapperStyle={{ color: legendColor }}/>
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : <div style={{opacity:.6, textAlign:"center", paddingTop:80}}>Sube un Excel para ver la distribución</div>}
             </div>
           </div>
         </div>
@@ -396,7 +566,7 @@ export default function DashboardVeredas() {
                 <ul style={{ margin: '6px 0 6px 18px' }}>
                   <li>P<sub>f</sub> = población final (2025)</li>
                   <li>P<sub>i</sub> = población inicial (2018)</li>
-                  <li>n = número de años (7 años en este caso)</li>
+                  <li>n = número o intervalo de años</li>
                 </ul>
                 <span style={{ color: '#eab308', fontWeight: 500 }}>Esto nos da la <u>tasa anual compuesta de crecimiento poblacional</u>.</span><br/>
                 Con este <b>R</b> podemos proyectar hacia adelante:<br/>
@@ -407,7 +577,6 @@ export default function DashboardVeredas() {
               </li>
               <li>
                 <strong>Densidad Poblacional (DP)</strong><br/>
-                Ya tenemos las áreas (en km²) de cada vereda/municipio.<br/>
                 La fórmula es:<br/>
                 <span style={{ display: 'block', margin: '8px 0', fontFamily: 'monospace', fontSize: 18 }}>
                   DP<sub>t</sub> = P<sub>t</sub> / Área

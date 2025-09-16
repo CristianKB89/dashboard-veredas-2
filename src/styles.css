@@ -22,6 +22,12 @@ html, body { margin: 0; padding: 0; font-family: system-ui, Arial, sans-serif; }
 
 .kpis { display:grid; grid-template-columns: 1fr; gap: 12px; }
 @media (min-width: 800px){ .kpis { grid-template-columns: repeat(4, 1fr); } }
+
+/* 2 filas de 3 columnas para KPIs relevantes */
+.kpis-2x3 { grid-template-columns: 1fr; }
+@media (min-width: 800px){
+  .kpis-2x3 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, auto); }
+}
 .kpi { border:1px solid #2a2f3a; border-radius:14px; padding:12px; }
 .page.light .kpi { border-color:#e5e7eb; }
 .kpi label { font-size: 12px; opacity: .7; }
