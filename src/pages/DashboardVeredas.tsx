@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, Label
 } from "recharts";
 import * as htmlToImage from "html-to-image";
-import { Moon, Sun, Download, Info, FileBarChart2 } from "lucide-react";
+import { Moon, Sun, Info, FileBarChart2 } from "lucide-react";
 import { exportSectionsToWord } from "../exportToWord";
 import { exportSectionsToPDF } from "../exportToPDF";
 
@@ -198,64 +198,8 @@ export default function DashboardVeredas() {
   }, [rows]);
 
   // Descargar contenedor como JPG (alta calidad)
-  const sanitizeFilename = (name: string) => name.replace(/[^a-zA-Z0-9-_]/g, "_");
-  const dataUrlToBlob = (dataUrl: string) => {
-    const arr = dataUrl.split(",");
-    const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) u8arr[n] = bstr.charCodeAt(n);
-    return new Blob([u8arr], { type: mime });
-  };
-  const downloadAsJPG = async (ref: React.RefObject<HTMLDivElement | null>, filename: string) => {
-    if (!ref?.current) return;
-    const node = ref.current as HTMLElement;
-    try {
-      // evita fuentes sin cargar en SVG
-      // @ts-ignore
-      if (document.fonts && document.fonts.ready) await document.fonts.ready;
 
-      const png = await htmlToImage.toPng(node, {
-        pixelRatio: 2,
-        cacheBust: true,
-        backgroundColor: dark ? "#0b0b0b" : "#ffffff",
-        style: { background: dark ? "#0b0b0b" : "#ffffff" },
-      });
 
-      // Convertir a JPEG para tamaño y compatibilidad
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = png; });
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width; canvas.height = img.height;
-      const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = dark ? "#0b0b0b" : "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      const jpegUrl = canvas.toDataURL("image/jpeg", 0.95);
-
-      const a = document.createElement("a");
-      a.download = `${sanitizeFilename(filename)}.jpg`;
-      try {
-        const blob = dataUrlToBlob(jpegUrl);
-        const url = URL.createObjectURL(blob);
-        a.href = url;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      } catch {
-        a.href = jpegUrl;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
-    } catch (e) {
-      console.error(e);
-      alert("No se pudo generar la imagen. Intenta de nuevo.");
-    }
-  };
 
   // Colores de ejes/tooltip según modo
   const axisColor = dark ? "#e5e7eb" : "#111827";

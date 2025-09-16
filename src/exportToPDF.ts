@@ -1,6 +1,6 @@
 // Utilidad para exportar contenido a PDF con formato similar al Word
 // Usa pdf-lib (https://pdf-lib.js.org/) para máxima personalización
-import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, PDFFont } from 'pdf-lib';
 
 interface ExportSectionsToPDFParams {
   infoKPIs?: Array<{ label: string; value: string }>;
@@ -21,7 +21,6 @@ interface ExportSectionsToPDFParams {
 export async function exportSectionsToPDF(params: ExportSectionsToPDFParams) {
   const {
     infoKPIs = [],
-    infoHTML = '',
     poblacionHTML = '',
     densidadHTML = '',
     poblacionImg,
