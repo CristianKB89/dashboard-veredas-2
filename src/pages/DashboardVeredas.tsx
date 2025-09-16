@@ -59,7 +59,10 @@ export default function DashboardVeredas() {
       .sort((a, b) => a - b)
       .map(String);
 
-    setMunicipio(ALL_VALUE);
+    // Obtener municipios únicos ordenados
+    const municipiosSet = new Set(json.map((r) => (r["Municipio"] ?? "").toString().trim()).filter(Boolean));
+    const municipiosArr = Array.from(municipiosSet).sort((a, b) => a.localeCompare(b));
+    setMunicipio(municipiosArr[0] || "");
     setVereda("");
     setDpYear(detectedYears[0] || "2025");
   };
