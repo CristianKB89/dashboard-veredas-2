@@ -243,7 +243,7 @@ export default function DashboardVeredas() {
               {dark ? <Sun size={18}/> : <Moon size={18}/>}
             </button>
           </div>
-        </div>
+        </div>        
 
         {/* Filtros */}
         <div className="card" style={{ marginTop: 16 }}>
@@ -379,6 +379,80 @@ export default function DashboardVeredas() {
 
         <div style={{ fontSize: 12, opacity: .7, marginTop: 8 }}>
           <strong>Notas:</strong> Los años válidos se detectan entre {YEAR_MIN} y {YEAR_MAX}. La población se muestra como <em>número entero</em>. La densidad se calcula como SUM(población)/SUM(área) para la vereda seleccionada.
+        </div>
+
+        {/* Explicación de fórmulas */}
+        <div className="card" style={{ marginTop: 24, marginBottom: 24 }}>
+          <div className="card-hd">📖 Explicación de las fórmulas</div>
+          <div className="card-bd" style={{ fontSize: 15, lineHeight: 1.7 }}>
+            <ol style={{ paddingLeft: 18 }}>
+              <li style={{ marginBottom: 12 }}>
+                <strong>Tasa de Crecimiento Poblacional (R)</strong><br/>
+                La fórmula estándar es:<br/>
+                <span style={{ display: 'block', margin: '8px 0', fontFamily: 'monospace', fontSize: 18 }}>
+                  R = (P<sub>f</sub> / P<sub>i</sub>)<sup>1/n</sup> - 1
+                </span>
+                Donde:<br/>
+                <ul style={{ margin: '6px 0 6px 18px' }}>
+                  <li>P<sub>f</sub> = población final (2025)</li>
+                  <li>P<sub>i</sub> = población inicial (2018)</li>
+                  <li>n = número de años (7 años en este caso)</li>
+                </ul>
+                <span style={{ color: '#eab308', fontWeight: 500 }}>Esto nos da la <u>tasa anual compuesta de crecimiento poblacional</u>.</span><br/>
+                Con este <b>R</b> podemos proyectar hacia adelante:<br/>
+                <span style={{ display: 'block', margin: '8px 0', fontFamily: 'monospace', fontSize: 18 }}>
+                  P<sub>t</sub> = P<sub>2025</sub> · (1 + R)<sup>t-2025</sup>
+                </span>
+                para t = 2026, 2027, ..., 2036.
+              </li>
+              <li>
+                <strong>Densidad Poblacional (DP)</strong><br/>
+                Ya tenemos las áreas (en km²) de cada vereda/municipio.<br/>
+                La fórmula es:<br/>
+                <span style={{ display: 'block', margin: '8px 0', fontFamily: 'monospace', fontSize: 18 }}>
+                  DP<sub>t</sub> = P<sub>t</sub> / Área
+                </span>
+                Donde:<br/>
+                <ul style={{ margin: '6px 0 6px 18px' }}>
+                  <li>P<sub>t</sub> = población proyectada del año t</li>
+                  <li>Área = área fija de la vereda/municipio (en km²)</li>
+                </ul>
+                <span style={{ color: '#eab308', fontWeight: 500 }}>Esto permite ver cómo la <u>distribución poblacional</u> cambia en el tiempo, veredas de muy baja densidad podrían pasar a baja o media densidad según los umbrales.</span>
+              </li>
+            </ol>
+          </div>
+        </div>
+
+        {/* Fuentes y referencias */}
+        <div className="card" style={{ marginTop: 0, marginBottom: 32 }}>
+          <div className="card-hd">🔗 Fuentes y referencias</div>
+          <div className="card-bd" style={{ fontSize: 14, lineHeight: 1.7 }}>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              <li>
+                <a href="https://www.dane.gov.co/index.php/estadisticas-por-tema/demografia-y-poblacion/proyecciones-de-poblacion" target="_blank" rel="noopener noreferrer">
+                  DANE – Proyecciones de población (Colombia)
+                </a>
+              </li>
+              <li>
+                <a href="https://geoportal.dane.gov.co/servicios/atlas-estadistico/src/Tomo_I_Demografico/2.2.3.-densidad-de-la-poblaci%C3%B3n-en-colombia.html" target="_blank" rel="noopener noreferrer">
+                  DANE – Densidad de población (Colombia)
+                </a>
+              </li>
+              <li>
+                <a href="https://population.un.org/wpp/" target="_blank" rel="noopener noreferrer">
+                  United Nations – World Population Prospects (WPP)
+                </a>
+              </li>
+              <li>
+                <a href="https://unstats.un.org/unsd/demographic-social/products/dyb/index.cshtml" target="_blank" rel="noopener noreferrer">
+                  United Nations – Demographic Yearbook
+                </a>
+              </li>
+            </ul>
+            <div style={{ fontSize: 12, opacity: .7, marginTop: 8 }}>
+              Para mayor rigor, consulta la documentación oficial del DANE y organismos internacionales de estadística poblacional.
+            </div>
+          </div>
         </div>
       </div>
     </div>
