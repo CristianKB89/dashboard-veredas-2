@@ -1,0 +1,47 @@
+/* Layout base */
+:root { color-scheme: light dark; }
+html, body { margin: 0; padding: 0; font-family: system-ui, Arial, sans-serif; }
+
+.page { min-height: 100vh; background: #0b0b0b; color: #eaeaea; }
+.page.light { background: #f6f7fb; color: #0f172a; }
+
+.container { max-width: 1120px; margin: 0 auto; padding: 24px; }
+
+.header { display:flex; gap:16px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+.hstack { display:flex; align-items:center; gap:12px; }
+.title { font-size: 22px; font-weight: 700; }
+
+.card { background: #111318; border: 1px solid #2a2f3a; border-radius: 12px; overflow: hidden; }
+.page.light .card { background:#fff; border-color:#e5e7eb; }
+.card-hd { padding: 12px 16px; border-bottom: 1px solid #2a2f3a; font-weight: 600; }
+.page.light .card-hd { border-color:#e5e7eb; }
+.card-bd { padding: 16px; }
+
+.grid-3 { display:grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 800px){ .grid-3 { grid-template-columns: repeat(3, 1fr); } }
+
+.kpis { display:grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 800px){ .kpis { grid-template-columns: repeat(4, 1fr); } }
+.kpi { border:1px solid #2a2f3a; border-radius:14px; padding:12px; }
+.page.light .kpi { border-color:#e5e7eb; }
+.kpi label { font-size: 12px; opacity: .7; }
+.kpi .val { font-weight:700; margin-top:4px; }
+
+select, input[type="file"] {
+  padding: 8px 10px; border-radius: 8px; border:1px solid #2a2f3a; background:#0e1015; color:#eaeaea;
+}
+.page.light select, .page.light input[type="file"] {
+  background:#fff; color:#0f172a; border-color:#d1d5db;
+}
+
+button.icon, .btn {
+  display:inline-flex; align-items:center; gap:8px; border-radius:8px;
+  border:1px solid #2a2f3a; background:#0e1015; color:#eaeaea; padding:8px 10px; cursor:pointer;
+}
+.page.light button.icon, .page.light .btn {
+  background:#fff; color:#0f172a; border-color:#d1d5db;
+}
+button.icon:hover, .btn:hover { filter:brightness(1.1); }
+
+/* Alturas fijas para que las gráficas no se desborden incluso sin utilidades */
+.chart { height: 320px; border-radius:12px; padding: 12px; }
