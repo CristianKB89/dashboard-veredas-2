@@ -21,6 +21,19 @@ interface ExportSectionsToWordParams {
 }
 
 export async function exportSectionsToWord(params: ExportSectionsToWordParams) {
+  // Paleta de colores igual que en el dashboard
+  const rowColors = [
+    '22c55e', // verde
+    '06b6d4', // cyan
+    'eab308', // amarillo
+    'ef4444', // rojo
+    '4f46e5', // azul
+    '8b5cf6', // violeta
+    'f472b6', // rosa
+    '10b981', // verde esmeralda
+    'f59e42', // naranja
+    '6366f1', // azul indigo
+  ];
   const {
     infoKPIs = [],
     infoHTML = "",
@@ -86,7 +99,7 @@ export async function exportSectionsToWord(params: ExportSectionsToWordParams) {
           shading: { fill: "e0e7ff" },
         }))
       }),
-      ...tasaRTable.map(row => {
+      ...tasaRTable.map((row, idx) => {
         let tasaR = '—';
         if (keyTasaR) {
           const val = row[keyTasaR];
@@ -97,14 +110,15 @@ export async function exportSectionsToWord(params: ExportSectionsToWordParams) {
         let pob2028 = keyPob2028 ? row[keyPob2028] : undefined;
         let pob2030 = keyPob2030 ? row[keyPob2030] : undefined;
         let pob2035 = keyPob2035 ? row[keyPob2035] : undefined;
+        const colorFila = rowColors[idx % rowColors.length];
         return new TableRow({
           children: [
-            new TableCell({ children: [new Paragraph({ text: row[keyMun] || '—' })], width: { size: 20, type: WidthType.PERCENTAGE } }),
-            new TableCell({ children: [new Paragraph({ text: pob2025 !== undefined ? Number(pob2025).toLocaleString() : '—' })], width: { size: 16, type: WidthType.PERCENTAGE } }),
-            new TableCell({ children: [new Paragraph({ text: pob2028 !== undefined ? Number(pob2028).toLocaleString() : '—' })], width: { size: 16, type: WidthType.PERCENTAGE } }),
-            new TableCell({ children: [new Paragraph({ text: pob2030 !== undefined ? Number(pob2030).toLocaleString() : '—' })], width: { size: 16, type: WidthType.PERCENTAGE } }),
-            new TableCell({ children: [new Paragraph({ text: pob2035 !== undefined ? Number(pob2035).toLocaleString() : '—' })], width: { size: 16, type: WidthType.PERCENTAGE } }),
-            new TableCell({ children: [new Paragraph({ text: tasaR })], width: { size: 16, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: row[keyMun] || '—', color: colorFila })] })], width: { size: 20, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: pob2025 !== undefined ? Number(pob2025).toLocaleString() : '—', color: colorFila })] })], width: { size: 16, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: pob2028 !== undefined ? Number(pob2028).toLocaleString() : '—', color: colorFila })] })], width: { size: 16, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: pob2030 !== undefined ? Number(pob2030).toLocaleString() : '—', color: colorFila })] })], width: { size: 16, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: pob2035 !== undefined ? Number(pob2035).toLocaleString() : '—', color: colorFila })] })], width: { size: 16, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: tasaR, color: colorFila })] })], width: { size: 16, type: WidthType.PERCENTAGE } }),
           ]
         });
       })

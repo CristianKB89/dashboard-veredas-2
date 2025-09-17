@@ -30,6 +30,19 @@ const classifyDensity = (dp: unknown) => {
 
 
 export default function DashboardVeredas() {
+  // Definir colores por fila (puedes personalizar la paleta)
+  const rowColors = [
+    '#22c55e', // verde
+    '#06b6d4', // cyan
+    '#eab308', // amarillo
+    '#ef4444', // rojo
+    '#4f46e5', // azul
+    '#8b5cf6', // violeta
+    '#f472b6', // rosa
+    '#10b981', // verde esmeralda
+    '#f59e42', // naranja
+    '#6366f1', // azul indigo
+  ];
   const infoRef = useRef<HTMLDivElement | null>(null);
   const poblacionRef = useRef<HTMLDivElement | null>(null);
   const densidadRef = useRef<HTMLDivElement | null>(null);
@@ -482,6 +495,7 @@ export default function DashboardVeredas() {
                   </tr>
                 </thead>
                 <tbody>
+                  {/* Renderizar filas de la tabla con color por fila */}
                   {tasaRTable.map((row: any, idx: number) => {
                     const municipio = row["Municipio"] || row["municipio"] || row["MUNICIPIO"] || "";
                     const p2025 = row["2025"] ?? row["Población 2025"] ?? row["POBLACION 2025"] ?? row["POBLACIÓN 2025"] ?? "";
@@ -495,14 +509,15 @@ export default function DashboardVeredas() {
                       const num = Number(tasaR);
                       if (!isNaN(num)) tasaR = (num * 100).toLocaleString(undefined, { maximumFractionDigits: 2 }) + '%';
                     }
+                    const colorFila = rowColors[idx % rowColors.length];
                     return (
                       <tr key={idx} style={{ background: idx % 2 === 0 ? (dark ? '#232b3e' : '#f3f6fd') : (dark ? '#181e2a' : '#fff'), transition: 'background 0.3s' }}>
-                        <td style={{ padding: '10px 8px', borderBottom: '1.5px solid #c7d2fe', fontWeight: 700, borderRight: '1px solid #e0e7ff', borderLeft: idx === 0 ? 'none' : undefined, color: dark ? '#a5b4fc' : '#4f46e5', minWidth: 120, maxWidth: 180, textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', fontSize: 11 }}>{municipio}</td>
-                        <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', borderRight: '1px solid #e0e7ff', color: '#22c55e', fontWeight: 700, minWidth: 80, maxWidth: 110, fontSize: 11 }}>{Number(p2025).toLocaleString()}</td>
-                        <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', borderRight: '1px solid #e0e7ff', color: '#06b6d4', fontWeight: 700, minWidth: 80, maxWidth: 110, fontSize: 11 }}>{Number(p2028).toLocaleString()}</td>
-                        <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', borderRight: '1px solid #e0e7ff', color: '#eab308', fontWeight: 700, minWidth: 80, maxWidth: 110, fontSize: 11 }}>{Number(p2030).toLocaleString()}</td>
-                        <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', borderRight: '1px solid #e0e7ff', color: '#ef4444', fontWeight: 700, minWidth: 80, maxWidth: 110, fontSize: 11 }}>{Number(p2035).toLocaleString()}</td>
-                        <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', color: '#4f46e5', fontWeight: 900, fontSize: 11, minWidth: 60, maxWidth: 80 }}>{tasaR}</td>
+                        <td style={{ padding: '10px 8px', borderBottom: '1.5px solid #c7d2fe', fontWeight: 700, borderRight: '1px solid #e0e7ff', borderLeft: idx === 0 ? 'none' : undefined, color: colorFila, minWidth: 120, maxWidth: 180, textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', fontSize: 11 }}>{municipio}</td>
+                        <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', borderRight: '1px solid #e0e7ff', color: colorFila, fontWeight: 700, minWidth: 80, maxWidth: 110, fontSize: 11 }}>{Number(p2025).toLocaleString()}</td>
+                        <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', borderRight: '1px solid #e0e7ff', color: colorFila, fontWeight: 700, minWidth: 80, maxWidth: 110, fontSize: 11 }}>{Number(p2028).toLocaleString()}</td>
+                        <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', borderRight: '1px solid #e0e7ff', color: colorFila, fontWeight: 700, minWidth: 80, maxWidth: 110, fontSize: 11 }}>{Number(p2030).toLocaleString()}</td>
+                        <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', borderRight: '1px solid #e0e7ff', color: colorFila, fontWeight: 700, minWidth: 80, maxWidth: 110, fontSize: 11 }}>{Number(p2035).toLocaleString()}</td>
+                        <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', color: colorFila, fontWeight: 900, fontSize: 11, minWidth: 60, maxWidth: 80 }}>{tasaR}</td>
                       </tr>
                     );
                   })}
@@ -532,24 +547,42 @@ export default function DashboardVeredas() {
                   });
                   return entry;
                 });
+                // Formato compacto con K para miles
+                function formatK(val: number | string): string {
+                  const n = Number(val);
+                  if (!isFinite(n)) return '—';
+                  if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + 'K';
+                  return n.toString();
+                }
                 return (
                   <BarChart data={data} margin={{ top: 24, right: 24, left: 24, bottom: 32 }}>
                     <XAxis dataKey="year">
                       <Label value="Años" offset={24} position="bottom" style={{ fontSize: 14, fill: dark ? '#e0e7ff' : '#232b3e', fontWeight: 700 }} />
                     </XAxis>
-                    <YAxis tick={{ fontSize: 11, fill: dark ? '#e0e7ff' : '#232b3e' }} tickFormatter={v => Number(v).toLocaleString()} >
+                    <YAxis tick={{ fontSize: 11, fill: dark ? '#e0e7ff' : '#232b3e' }} tickFormatter={formatK} >
                       <Label value="Población" angle={-90} position="insideLeft" style={{ fontSize: 14, fill: dark ? '#e0e7ff' : '#232b3e', fontWeight: 700 }} />
                     </YAxis>
                     <Tooltip
                       contentStyle={{ background: dark ? '#232b3e' : '#fff', border: `1px solid #6366f1`, borderRadius: 8, fontWeight: 600, fontSize: 13 }}
                       labelStyle={{ color: dark ? '#e0e7ff' : '#232b3e' }}
                       itemStyle={{ color: dark ? '#e0e7ff' : '#232b3e' }}
-                      formatter={(value: any) => Number(value).toLocaleString()}
+                      formatter={(value: any) => formatK(value)}
                       separator=": "
                     />
                     <Legend wrapperStyle={{ fontSize: 12, color: dark ? '#e0e7ff' : '#232b3e' }} />
                     {municipios.map((m, idx) => (
-                      <Bar key={m} dataKey={m} name={m} fill={barColors[idx % barColors.length]} radius={[6, 6, 0, 0]} />
+                      <Bar key={m} dataKey={m} name={m} fill={barColors[idx % barColors.length]} radius={[6, 6, 0, 0]}
+                        label={({ x, y, width, value }) => {
+                          if (typeof x === 'number' && typeof y === 'number' && typeof width === 'number' && typeof value === 'number' && !isNaN(value) && value > 0) {
+                            return (
+                              <text x={x + width / 2} y={y - 8} fill={barColors[idx % barColors.length]} fontSize={13} fontWeight={700} textAnchor="middle">
+                                {formatK(value)}
+                              </text>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
                     ))}
                   </BarChart>
                 );
