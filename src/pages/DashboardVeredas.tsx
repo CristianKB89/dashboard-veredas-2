@@ -1,13 +1,12 @@
+import { exportSectionsToWord } from "../exportToWord";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
+  XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, Label
 } from "recharts";
 import * as htmlToImage from "html-to-image";
 import { Moon, Sun, Info, FileBarChart2 } from "lucide-react";
-import { exportSectionsToWord } from "../exportToWord";
-import { exportSectionsToPDF } from "../exportToPDF";
 
 const YEAR_MIN = 2025;
 const YEAR_MAX = 2035;
@@ -44,22 +43,17 @@ export default function DashboardVeredas() {
     '#6366f1', // azul indigo
   ];
   const infoRef = useRef<HTMLDivElement | null>(null);
-  const poblacionRef = useRef<HTMLDivElement | null>(null);
   const densidadRef = useRef<HTMLDivElement | null>(null);
-  const poblacionAnalisisRef = useRef<HTMLDivElement | null>(null);
-  const densidadAnalisisRef = useRef<HTMLDivElement | null>(null);
   const [rows, setRows] = useState<any[]>([]);
   const [municipio, setMunicipio] = useState<string>(ALL_VALUE);
   const [vereda, setVereda] = useState<string>("");
   const [dpYear, setDpYear] = useState<string>("2025");
   const [dark, setDark] = useState(true);
-  const [exportFormat, setExportFormat] = useState<'word' | 'pdf'>('word');
+  // Solo Word
   const [tasaRTable, setTasaRTable] = useState<any[] | null>(null);
 
-  const lineRef = useRef<HTMLDivElement | null>(null);
-  const barRef = useRef<HTMLDivElement | null>(null);
   const pieRef = useRef<HTMLDivElement | null>(null);
-  const poblacionMunicipioRef = useRef<HTMLDivElement | null>(null);
+  const poblacionChartRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     // cambiar la clase del <html> para respetar preferencias del sistema
@@ -178,14 +172,6 @@ export default function DashboardVeredas() {
   // Datos para gráficas (por vereda o municipio)
   const rowsToAggregate = vereda ? groupRows : filteredRows;
 
-  const lineData = useMemo(() => {
-    if (!rowsToAggregate.length || years.length === 0) return [] as { year: string; value: number }[];
-    // Sumar población por año
-    return years.map((y) => ({
-      year: y,
-      value: Math.round(rowsToAggregate.reduce((acc, r) => acc + toNum(r[y]), 0))
-    }));
-  }, [rowsToAggregate, years]);
 
   const dpYears = useMemo(() => years.map((y) => `DP_${y}`), [years]);
 
@@ -235,163 +221,245 @@ export default function DashboardVeredas() {
             <label htmlFor="file" className="sr-only">Subir Excel</label>
             <input id="file" type="file" accept=".xlsx,.xls" onChange={(e) => handleFile(e.target.files?.[0] ?? undefined)} />
             <button className="btn" style={{ marginRight: 12 }} onClick={async () => {
-              if (!infoRef.current || !poblacionRef.current || !densidadRef.current || !lineRef.current || !barRef.current || !poblacionMunicipioRef.current) {
-                alert("No se pudo recolectar la información para exportar.");
-                return;
-              }
-              // Captura las gráficas como imágenes PNG (siempre en fondo claro para Word)
-              let poblacionImg = "";
-              let densidadImg = "";
-              let pieImg = "";
-              let poblacionMunicipioImg = "";
-              let poblacionSize = { width: 600, height: 320 };
-              let densidadSize = { width: 600, height: 320 };
-              let pieSize = { width: 600, height: 320 };
-              let poblacionMunicipioSize = { width: 600, height: 320 };
-              if (lineRef.current) {
-                poblacionSize = {
-                  width: lineRef.current.offsetWidth || 600,
-                  height: lineRef.current.offsetHeight || 320
-                };
-              }
-              if (barRef.current) {
-                densidadSize = {
-                  width: barRef.current.offsetWidth || 600,
-                  height: barRef.current.offsetHeight || 320
-                };
-              }
-              if (poblacionMunicipioRef.current) {
-                poblacionMunicipioSize = {
-                  width: 1200,
-                  height: 600
-                };
-              }
-              try {
-                poblacionImg = await htmlToImage.toPng(lineRef.current, { pixelRatio: 3, backgroundColor: "#fff" });
-              } catch { }
-              try {
-                densidadImg = await htmlToImage.toPng(barRef.current, { pixelRatio: 3, backgroundColor: "#fff" });
-              } catch { }
-              try {
-                // Quitar padding/margen del contenedor solo para la exportación
-                let chartNode = poblacionMunicipioRef.current;
-                if (chartNode) {
-                  const prevPadding = chartNode.style.padding;
-                  const prevMargin = chartNode.style.margin;
-                  chartNode.style.padding = '0';
-                  chartNode.style.margin = '0';
-                  try {
-                    poblacionMunicipioImg = await htmlToImage.toPng(chartNode, { pixelRatio: 3, backgroundColor: dark ? "#181e2a" : "#fff" });
-                  } finally {
-                    chartNode.style.padding = prevPadding;
-                    chartNode.style.margin = prevMargin;
-                  }
+              let poblacionChartImg: string | null = null;
+              let densidadChartImg: string | null = null;
+              let densidadBarChartImg: string | null = null;
+              // Exportar gráfica de población
+              if (poblacionChartRef.current) {
+                const prevStyle = poblacionChartRef.current.getAttribute('style') || '';
+                const chartDiv = poblacionChartRef.current;
+                chartDiv.style.background = dark ? '#181e2a' : '#fff';
+                chartDiv.style.padding = '0';
+                chartDiv.style.borderRadius = '0';
+                chartDiv.style.boxShadow = 'none';
+                let exportWidth = 650;
+                let exportHeight = Math.round(exportWidth * 400 / 820);
+                if (chartDiv.scrollWidth && chartDiv.scrollHeight) {
+                  exportWidth = chartDiv.scrollWidth;
+                  exportHeight = chartDiv.scrollHeight;
                 }
-              } catch { }
-              if (pieRef.current) {
-                pieSize = {
-                  width: pieRef.current.offsetWidth || 600,
-                  height: pieRef.current.offsetHeight || 320
-                };
+                chartDiv.style.width = exportWidth + 'px';
+                chartDiv.style.height = exportHeight + 'px';
+                chartDiv.style.maxWidth = exportWidth + 'px';
+                chartDiv.style.minWidth = exportWidth + 'px';
+                chartDiv.style.margin = '0';
+                chartDiv.style.position = 'static';
+                const chartResponsive = chartDiv.querySelector('.export-responsive') as HTMLDivElement | null;
+                let prevResponsiveHeight = '';
+                if (chartResponsive) {
+                  prevResponsiveHeight = chartResponsive.style.height;
+                  chartResponsive.style.height = exportHeight + 'px';
+                  chartResponsive.style.width = exportWidth + 'px';
+                }
                 try {
-                  pieImg = await htmlToImage.toPng(pieRef.current, { pixelRatio: 3, backgroundColor: "#fff" });
-                } catch { }
+                  poblacionChartImg = await htmlToImage.toPng(chartDiv, {
+                    pixelRatio: 1,
+                    backgroundColor: dark ? '#181e2a' : '#fff',
+                    width: exportWidth,
+                    height: exportHeight,
+                    style: { width: exportWidth + 'px', height: exportHeight + 'px' }
+                  });
+                } catch (e) {
+                  poblacionChartImg = null;
+                } finally {
+                  chartDiv.setAttribute('style', prevStyle);
+                  if (chartResponsive) chartResponsive.style.height = prevResponsiveHeight;
+                }
+              }
+              // Exportar gráfica de densidad (pie)
+              if (pieRef.current) {
+                const prevStyle = pieRef.current.getAttribute('style') || '';
+                const chartDiv = pieRef.current;
+                chartDiv.style.background = dark ? '#181e2a' : '#fff';
+                chartDiv.style.padding = '0';
+                chartDiv.style.borderRadius = '0';
+                chartDiv.style.boxShadow = 'none';
+                // Aumentar el ancho de exportación y reducir márgenes laterales
+                let exportWidth = 1000;
+                let exportHeight = 330;
+                if (chartDiv.scrollWidth && chartDiv.scrollHeight) {
+                  exportWidth = chartDiv.scrollWidth;
+                  exportHeight = chartDiv.scrollHeight;
+                }
+                chartDiv.style.width = exportWidth + 'px';
+                chartDiv.style.height = exportHeight + 'px';
+                chartDiv.style.maxWidth = exportWidth + 'px';
+                chartDiv.style.minWidth = exportWidth + 'px';
+                chartDiv.style.margin = '0';
+                chartDiv.style.position = 'static';
+                try {
+                  densidadChartImg = await htmlToImage.toPng(chartDiv, {
+                    pixelRatio: 1,
+                    backgroundColor: dark ? '#181e2a' : '#fff',
+                    width: exportWidth,
+                    height: exportHeight,
+                    style: { width: exportWidth + 'px', height: exportHeight + 'px' }
+                  });
+                } catch (e) {
+                  densidadChartImg = null;
+                } finally {
+                  chartDiv.setAttribute('style', prevStyle);
+                }
               }
 
-              // Construir KPIs para exportar
-              let infoKPIs: Array<{ label: string; value: string }> = [];
-              if (!vereda && municipio && municipio !== ALL_VALUE && filteredRows.length) {
-                // KPIs por municipio (agregado)
+              // Exportar gráfica de barras de densidad poblacional por año
+              if (densidadRef.current) {
+                const prevStyle = densidadRef.current.getAttribute('style') || '';
+                const chartDiv = densidadRef.current.querySelector('.chart') as HTMLElement | null;
+                if (chartDiv) {
+                  const prevChartStyle = chartDiv.getAttribute('style') || '';
+                  chartDiv.style.background = dark ? '#181e2a' : '#fff';
+                  chartDiv.style.padding = '0';
+                  chartDiv.style.borderRadius = '0';
+                  chartDiv.style.boxShadow = 'none';
+                  let exportWidth = 820;
+                  let exportHeight = 340;
+                  if (chartDiv.scrollWidth && chartDiv.scrollHeight) {
+                    exportWidth = chartDiv.scrollWidth;
+                    exportHeight = chartDiv.scrollHeight;
+                  }
+                  chartDiv.style.width = exportWidth + 'px';
+                  chartDiv.style.height = exportHeight + 'px';
+                  chartDiv.style.maxWidth = exportWidth + 'px';
+                  chartDiv.style.minWidth = exportWidth + 'px';
+                  chartDiv.style.margin = '0';
+                  chartDiv.style.position = 'static';
+                  try {
+                    densidadBarChartImg = await htmlToImage.toPng(chartDiv, {
+                      pixelRatio: 1,
+                      backgroundColor: dark ? '#181e2a' : '#fff',
+                      width: exportWidth,
+                      height: exportHeight,
+                      style: { width: exportWidth + 'px', height: exportHeight + 'px' }
+                    });
+                  } catch (e) {
+                    densidadBarChartImg = null;
+                  } finally {
+                    chartDiv.setAttribute('style', prevChartStyle);
+                  }
+                }
+                densidadRef.current.setAttribute('style', prevStyle);
+              }
+              // Extraer KPIs actuales para infoRelevante
+              // Extraer y estructurar datos de densidad para exportar
+              let densidadExport: any = null;
+              if (municipio && municipio !== ALL_VALUE && (!vereda || vereda === "") && filteredRows.length) {
                 const rowsToAggregate = filteredRows;
                 const totalArea = rowsToAggregate.reduce((acc, r) => acc + toNum(r["Área vereda en km2"]), 0);
-                const rVals = rowsToAggregate.map((r) => toNum(r["R"]))
-                  .filter((n) => Number.isFinite(n));
-                const rProm = rVals.length ? rVals.reduce((a, b) => a + b, 0) / rVals.length : 0;
                 const popByYear: Record<string, number> = {};
-                const dpByYear: Record<string, number> = {};
                 years.forEach((y) => {
                   popByYear[y] = rowsToAggregate.reduce((acc, r) => acc + toNum(r[y]), 0);
                 });
+                const dpByYear: Record<string, number> = {};
                 years.forEach((y) => {
                   dpByYear[y] = totalArea > 0 ? popByYear[y] / totalArea : 0;
                 });
-                const calif = classifyDensity(dpByYear[dpYear]);
-                infoKPIs = [
-                  { label: "Municipio", value: municipio },
-                  { label: "Área total (km²)", value: Number(totalArea).toLocaleString() },
-                  { label: "Tasa de Crecimiento Poblacional (R)", value: (rProm * 100).toLocaleString(undefined, { maximumFractionDigits: 2 }) + "%" },
-                  { label: `Población ${years.includes(dpYear) ? dpYear : years[0]}`, value: Math.round(popByYear[years.includes(dpYear) ? dpYear : years[0]] || 0).toLocaleString() },
-                  { label: `Densidad Poblacional ${years.includes(dpYear) ? dpYear : years[0]}`, value: Math.round(dpByYear[years.includes(dpYear) ? dpYear : years[0]] || 0).toLocaleString() + " hab/km²" },
-                  { label: "Calificación densidad", value: calif },
-                ];
-              } else if (aggregatedRow) {
-                infoKPIs = [
-                  { label: "Municipio", value: aggregatedRow["Municipio"] ?? "" },
-                  ...(vereda ? [{ label: "Vereda", value: vereda }] : []),
-                  { label: "Área vereda (km²)", value: Number(aggregatedRow["Área vereda en km2"]).toLocaleString() },
-                  { label: "Tasa de Crecimiento Poblacional (R)", value: (Number(aggregatedRow["R"]) * 100).toLocaleString(undefined, { maximumFractionDigits: 2 }) + "%" },
-                  { label: `Población ${dpYear}`, value: Math.round(Number(aggregatedRow[dpYear]) || 0).toLocaleString() },
-                  { label: `Densidad Poblacional ${dpYear}`, value: Math.round(Number(aggregatedRow[`DP_${dpYear}`]) || 0).toLocaleString() + " hab/km²" },
-                  { label: "Calificación densidad", value: (aggregatedRow["Calificación densidad"] ?? "").toString() },
-                ];
+                const dpActual = Math.round(dpByYear[dpYear] || 0);
+                const dpInicial = Math.round(dpByYear[years[0]] || 0);
+                const dpFinal = Math.round(dpByYear[years[years.length - 1]] || 0);
+                const calif = classifyDensity(dpActual).toLowerCase();
+                const tendenciaDP = dpFinal > dpInicial ? 'aumento' : (dpFinal < dpInicial ? 'disminución' : 'estabilidad');
+                let interpretacion = '';
+                if (tendenciaDP === 'aumento') {
+                  interpretacion = 'El aumento de densidad puede indicar concentración de población, presión sobre recursos y necesidad de ampliar servicios básicos e infraestructura.';
+                } else if (tendenciaDP === 'disminución') {
+                  interpretacion = 'La disminución de densidad puede reflejar migración, abandono de tierras o envejecimiento poblacional. Es importante analizar si hay pérdida de dinamismo económico.';
+                } else {
+                  interpretacion = 'La estabilidad en la densidad sugiere un equilibrio entre población y territorio, lo que facilita la planificación sostenible.';
+                }
+                let recomendacion = '';
+                if (dpActual > 60) {
+                  recomendacion = 'Se recomienda evaluar la capacidad de servicios públicos y el impacto ambiental del crecimiento.';
+                } else if (dpActual < 20) {
+                  recomendacion = 'La baja densidad puede dificultar la provisión de servicios; se sugiere explorar estrategias de integración o incentivos para atraer población.';
+                } else {
+                  recomendacion = 'Mantener monitoreo y promover el desarrollo equilibrado.';
+                }
+                densidadExport = {
+                  municipio,
+                  vereda: null,
+                  dpYear,
+                  years,
+                  dpActual,
+                  dpInicial,
+                  dpFinal,
+                  calif,
+                  tendenciaDP,
+                  interpretacion,
+                  recomendacion
+                };
+              } else if (municipio && municipio !== ALL_VALUE && vereda && aggregatedRow) {
+                const rowsToAggregate = groupRows;
+                if (rowsToAggregate.length) {
+                  const totalArea = rowsToAggregate.reduce((acc, r) => acc + toNum(r["Área vereda en km2"]), 0);
+                  const popByYear: Record<string, number> = {};
+                  years.forEach((y) => {
+                    popByYear[y] = rowsToAggregate.reduce((acc, r) => acc + toNum(r[y]), 0);
+                  });
+                  const dpByYear: Record<string, number> = {};
+                  years.forEach((y) => {
+                    dpByYear[y] = totalArea > 0 ? popByYear[y] / totalArea : 0;
+                  });
+                  const dpActual = Math.round(dpByYear[dpYear] || 0);
+                  const dpInicial = Math.round(dpByYear[years[0]] || 0);
+                  const dpFinal = Math.round(dpByYear[years[years.length - 1]] || 0);
+                  const calif = classifyDensity(dpActual).toLowerCase();
+                  const tendenciaDP = dpFinal > dpInicial ? 'aumento' : (dpFinal < dpInicial ? 'disminución' : 'estabilidad');
+                  let interpretacion = '';
+                  if (tendenciaDP === 'aumento') {
+                    interpretacion = 'El aumento de densidad puede indicar concentración de población, presión sobre recursos y necesidad de ampliar servicios básicos e infraestructura.';
+                  } else if (tendenciaDP === 'disminución') {
+                    interpretacion = 'La disminución de densidad puede reflejar migración, abandono de tierras o envejecimiento poblacional. Es importante analizar si hay pérdida de dinamismo económico.';
+                  } else {
+                    interpretacion = 'La estabilidad en la densidad sugiere un equilibrio entre población y territorio, lo que facilita la planificación sostenible.';
+                  }
+                  let recomendacion = '';
+                  if (dpActual > 60) {
+                    recomendacion = 'Se recomienda evaluar la capacidad de servicios públicos y el impacto ambiental del crecimiento.';
+                  } else if (dpActual < 20) {
+                    recomendacion = 'La baja densidad puede dificultar la provisión de servicios; se sugiere explorar estrategias de integración o incentivos para atraer población.';
+                  } else {
+                    recomendacion = 'Mantener monitoreo y promover el desarrollo equilibrado.';
+                  }
+                  densidadExport = {
+                    municipio,
+                    vereda,
+                    dpYear,
+                    years,
+                    dpActual,
+                    dpInicial,
+                    dpFinal,
+                    calif,
+                    tendenciaDP,
+                    interpretacion,
+                    recomendacion
+                  };
+                }
               }
-
-              if (exportFormat === 'word') {
-                exportSectionsToWord({
-                  infoKPIs,
-                  poblacionHTML: poblacionAnalisisRef.current ? poblacionAnalisisRef.current.innerText : "",
-                  densidadHTML: densidadAnalisisRef.current ? densidadAnalisisRef.current.innerText : "",
-                  poblacionImg,
-                  densidadImg,
-                  pieImg,
-                  poblacionImgSize: poblacionSize,
-                  densidadImgSize: densidadSize,
-                  pieImgSize: pieSize,
-                  poblacionMunicipioImg,
-                  poblacionMunicipioImgSize: poblacionMunicipioSize,
-                  tasaRTable,
-                  filename: `ficha_${municipio}${vereda ? `_${vereda}` : ''}.docx`
-                });
-              } else {
-                await exportSectionsToPDF({
-                  infoKPIs,
-                  poblacionHTML: poblacionAnalisisRef.current ? poblacionAnalisisRef.current.innerText : "",
-                  densidadHTML: densidadAnalisisRef.current ? densidadAnalisisRef.current.innerText : "",
-                  poblacionImg,
-                  densidadImg,
-                  pieImg,
-                  poblacionImgSize: poblacionSize,
-                  densidadImgSize: densidadSize,
-                  pieImgSize: pieSize,
-                  poblacionMunicipioImg,
-                  poblacionMunicipioImgSize: poblacionMunicipioSize,
-                  filename: `ficha_${municipio}${vereda ? `_${vereda}` : ''}.pdf`
-                });
-              }
+              exportSectionsToWord({
+                tasaRTable: (tasaRTable && tasaRTable.length > 0) ? tasaRTable : rows,
+                filename: `ficha_${municipio}${vereda ? `_${vereda}` : ''}.docx`,
+                poblacionChartImg,
+                densidadChartImg,
+                densidadBarChartImg,
+                densidadExport
+              });
             }}>
               Descargar ficha
             </button>
-            <select
-              value={exportFormat}
-              onChange={e => setExportFormat(e.target.value as 'word' | 'pdf')}
-              style={{ marginLeft: 12, padding: '6px 10px', borderRadius: 6, border: '1px solid #ccc' }}
-              disabled={!rows.length}
-            >
-              <option value="word">Word (.docx)</option>
-              <option value="pdf">PDF (.pdf)</option>
-            </select>
+            {/* Solo exportación Word */}
             <button className="icon" title="Modo oscuro" onClick={() => setDark((v) => !v)}>
               {dark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
           </div>
         </div>
-        {/* Tabla de tasas de crecimiento poblacional por municipio */}
+        {/* Tabla basada en proyecciones de población municipal para el periodo 2018-2042 con base en el CNPV 2018 del DANE */}
         {tasaRTable && Array.isArray(tasaRTable) && tasaRTable.length > 0 && (
           <div className="card" style={{ marginTop: 24, marginBottom: 24, boxShadow: '0 4px 24px 0 rgba(80,100,200,0.10)' }}>
             <div className="card-hd" style={{ fontWeight: 800, fontSize: 22, color: '#4f46e5', marginBottom: 14, letterSpacing: 0.7, textShadow: dark ? '0 2px 8px #232b3e' : '0 2px 8px #e0e7ff' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M16 3v4a2 2 0 0 0 2 2h4"/></svg>
-                Tasas de crecimiento poblacional por municipio
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 18, lineHeight: 1.3 }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="5" /><path d="M16 3v4a2 2 0 0 0 2 2h4" /></svg>
+                Tabla basada en proyecciones de población municipal para el periodo 2018-2042 con base en el CNPV 2018 del DANE
               </span>
             </div>
             <div className="card-bd" style={{ overflowX: 'auto', display: 'flex', justifyContent: 'center' }}>
@@ -477,21 +545,6 @@ export default function DashboardVeredas() {
                       letterSpacing: 1.1,
                       textTransform: 'uppercase',
                     }}>Población 2035</th>
-                    <th style={{
-                      padding: '6px 5px',
-                      borderBottom: '2.5px solid #4f46e5',
-                      fontWeight: 900,
-                      textAlign: 'center',
-                      background: dark ? '#232b3e' : '#e0e7ff',
-                      borderTopRightRadius: 12,
-                      fontSize: 9,
-                      minWidth: 60,
-                      maxWidth: 80,
-                      borderRight: '1.5px solid #4f46e5',
-                      color: dark ? '#e0e7ff' : '#232b3e',
-                      letterSpacing: 1.1,
-                      textTransform: 'uppercase',
-                    }}>Tasa de crecimiento poblacional R</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -502,13 +555,6 @@ export default function DashboardVeredas() {
                     const p2028 = row["2028"] ?? row["Población 2028"] ?? row["POBLACION 2028"] ?? row["POBLACIÓN 2028"] ?? "";
                     const p2030 = row["2030"] ?? row["Población 2030"] ?? row["POBLACION 2030"] ?? row["POBLACIÓN 2030"] ?? "";
                     const p2035 = row["2035"] ?? row["Población 2035"] ?? row["POBLACION 2035"] ?? row["POBLACIÓN 2035"] ?? "";
-                    let tasaR = row["R"] ?? row["Tasa R"] ?? row["TASA R"] ?? row["TASA_R"] ?? row["Tasa de crecimiento poblacional R"] ?? "";
-                    // Mostrar tasaR como porcentaje si es numérico
-                    if (typeof tasaR === 'number') tasaR = (tasaR * 100).toLocaleString(undefined, { maximumFractionDigits: 2 }) + '%';
-                    else if (typeof tasaR === 'string' && tasaR && !tasaR.includes('%')) {
-                      const num = Number(tasaR);
-                      if (!isNaN(num)) tasaR = (num * 100).toLocaleString(undefined, { maximumFractionDigits: 2 }) + '%';
-                    }
                     const colorFila = rowColors[idx % rowColors.length];
                     return (
                       <tr key={idx} style={{ background: idx % 2 === 0 ? (dark ? '#232b3e' : '#f3f6fd') : (dark ? '#181e2a' : '#fff'), transition: 'background 0.3s' }}>
@@ -517,79 +563,103 @@ export default function DashboardVeredas() {
                         <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', borderRight: '1px solid #e0e7ff', color: colorFila, fontWeight: 700, minWidth: 80, maxWidth: 110, fontSize: 11 }}>{Number(p2028).toLocaleString()}</td>
                         <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', borderRight: '1px solid #e0e7ff', color: colorFila, fontWeight: 700, minWidth: 80, maxWidth: 110, fontSize: 11 }}>{Number(p2030).toLocaleString()}</td>
                         <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', borderRight: '1px solid #e0e7ff', color: colorFila, fontWeight: 700, minWidth: 80, maxWidth: 110, fontSize: 11 }}>{Number(p2035).toLocaleString()}</td>
-                        <td style={{ padding: '10px 4px', borderBottom: '1.5px solid #c7d2fe', textAlign: 'right', color: colorFila, fontWeight: 900, fontSize: 11, minWidth: 60, maxWidth: 80 }}>{tasaR}</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-                    {/* Gráfica de poblaciones por municipio */}
-        {tasaRTable && Array.isArray(tasaRTable) && tasaRTable.length > 0 && (
-          <div ref={poblacionMunicipioRef} style={{ width: '100%', maxWidth: 820, margin: '32px auto 0 auto', background: dark ? '#181e2a' : '#f3f6fd', borderRadius: 12, padding: 16, boxShadow: '0 2px 12px 0 rgba(80,100,200,0.07)' }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#6366f1', marginBottom: 8, textAlign: 'center' }}>
-              Población proyectada por año y municipio
+            {/* Gráfica de poblaciones por municipio */}
+            {tasaRTable && Array.isArray(tasaRTable) && tasaRTable.length > 0 && (
+              <div ref={poblacionChartRef} style={{ width: '100%', maxWidth: 820, margin: '40px auto 24px auto', background: dark ? '#181e2a' : '#f3f6fd', borderRadius: 12, padding: '32px 48px', boxShadow: '0 2px 12px 0 rgba(80,100,200,0.07)', color: dark ? '#eaeaea' : '#232b3e' }}>
+                <div className="export-title" style={{ fontWeight: 700, fontSize: 15, color: '#6366f1', marginBottom: 8, textAlign: 'center' }}>
+                  Población proyectada por año y municipio
+                </div>
+                <ResponsiveContainer className="export-responsive" width="100%" height={400}>
+                  {(() => {
+                    // Obtener municipios únicos
+                    const municipios = tasaRTable.map((row: any) => row["Municipio"] || row["municipio"] || row["MUNICIPIO"] || "").filter(Boolean);
+                    // Años a graficar
+                    const years = ["2025", "2028", "2030", "2035"];
+                    // Colores para municipios
+                    const barColors = ["#22c55e", "#06b6d4", "#eab308", "#ef4444", "#4f46e5", "#8b5cf6", "#f472b6", "#10b981", "#f59e42", "#6366f1"];
+                    // Transformar datos: cada objeto es un año, con la población de cada municipio
+                    const data = years.map((year) => {
+                      const entry: any = { year };
+                      tasaRTable.forEach((row: any) => {
+                        const municipio = row["Municipio"] || row["municipio"] || row["MUNICIPIO"] || "";
+                        entry[municipio] = Number(row[year] ?? row["Población " + year] ?? row["POBLACION " + year] ?? row["POBLACIÓN " + year] ?? 0);
+                      });
+                      return entry;
+                    });
+                    // Formato compacto con K para miles
+                    function formatK(val: number | string): string {
+                      const n = Number(val);
+                      if (!isFinite(n)) return '—';
+                      if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + 'K';
+                      return n.toString();
+                    }
+                    return (
+                      <BarChart data={data} margin={{ top: 24, right: 24, left: 24, bottom: 32 }}>
+                        <XAxis dataKey="year">
+                          <Label value="Años" offset={24} position="bottom" style={{ fontSize: 14, fill: dark ? '#e0e7ff' : '#232b3e', fontWeight: 700 }} />
+                        </XAxis>
+                        <YAxis tick={{ fontSize: 11, fill: dark ? '#e0e7ff' : '#232b3e' }} tickFormatter={formatK} >
+                          <Label value="Población" angle={-90} position="insideLeft" style={{ fontSize: 14, fill: dark ? '#e0e7ff' : '#232b3e', fontWeight: 700 }} />
+                        </YAxis>
+                        <Tooltip
+                          contentStyle={{ background: dark ? '#232b3e' : '#fff', border: `1px solid #6366f1`, borderRadius: 8, fontWeight: 600, fontSize: 13 }}
+                          labelStyle={{ color: dark ? '#e0e7ff' : '#232b3e' }}
+                          itemStyle={{ color: dark ? '#e0e7ff' : '#232b3e' }}
+                          formatter={(value: any) => formatK(value)}
+                          separator=": "
+                        />
+                        <Legend wrapperStyle={{ fontSize: 12, color: dark ? '#e0e7ff' : '#232b3e' }} />
+                        {municipios.map((m, idx) => (
+                          <Bar key={m} dataKey={m} name={m} fill={barColors[idx % barColors.length]} radius={[6, 6, 0, 0]}
+                            label={({ x, y, width, value }) => {
+                              if (typeof x === 'number' && typeof y === 'number' && typeof width === 'number' && typeof value === 'number' && !isNaN(value) && value > 0) {
+                                return (
+                                  <text x={x + width / 2} y={y - 8} fill={barColors[idx % barColors.length]} fontSize={13} fontWeight={700} textAnchor="middle">
+                                    {formatK(value)}
+                                  </text>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                        ))}
+                      </BarChart>
+                    );
+                  })()}
+                </ResponsiveContainer>
+              </div>
+            )}
+            <div style={{ fontSize: 15, color: dark ? '#e0e7ff' : '#232b3e', marginBottom: 12, marginTop: 2, marginLeft: 40, marginRight: 40, lineHeight: 1.6, background: dark ? '#232b3e' : '#e0e7ff', borderRadius: 8, padding: '18px 40px' }}>
+              <b>Horizontes de proyección poblacional:</b><br />
+              <span>
+                La tabla presenta estimaciones de población municipal para tres horizontes temporales, cada uno con implicaciones estratégicas distintas. Para el conjunto de municipios analizados, los porcentajes proyectados de crecimiento poblacional acumulado en cada horizonte son los siguientes:
+              </span><br />
+              <span style={{ display: 'block', margin: '8px 0 0 0' }}>
+                <b>Fuente de datos:</b> Proyecciones oficiales del DANE basadas en el Censo Nacional de Población y Vivienda 2018 (CNPV 2018, periodo 2018-2042)<a href="#ref-dane-1" style={{ color: '#6366f1', textDecoration: 'none' }}><sup>[1]</sup></a>.<br /><br />
+              </span>
+              <b>Corto plazo (2025-2028) – Crecimiento acumulado: 4,95%.</b> Este horizonte permite anticipar cambios demográficos inmediatos, facilitando la asignación eficiente de recursos, la planificación de servicios públicos y la atención de necesidades urgentes. Es clave para la gestión operativa y la toma de decisiones de corto alcance en los gobiernos locales.<br /><br />
+              <b>Mediano plazo (2025-2030) – Crecimiento acumulado: 7,96%.</b> Ofrece una visión intermedia que apoya la formulación de políticas públicas, el desarrollo de proyectos de infraestructura y la implementación de programas sociales que requieren maduración y evaluación a medio término. Este horizonte resulta esencial para ajustar estrategias en función de tendencias emergentes y cambios estructurales en la dinámica poblacional.<br /><br />
+              <b>Largo plazo (2025-2035) – Crecimiento acumulado: 14,69%.</b> Proporciona una perspectiva de futuro necesaria para la planeación territorial, el desarrollo sostenible y la definición de visiones de largo alcance. Permite anticipar retos asociados al envejecimiento poblacional, las migraciones, la expansión urbana y la creciente demanda de servicios, contribuyendo así a la construcción de territorios resilientes y equitativos.<br /><br />
+              <b>Proyecciones oficiales del DANE:</b><br />
+              El Departamento Administrativo Nacional de Estadística (DANE) publica proyecciones oficiales de población municipal para cada año entre 2018 y 2042. Estas estimaciones se fundamentan en el Censo Nacional de Población y Vivienda 2018 (CNPV 2018) y en la aplicación de modelos demográficos avanzados. Particularmente, se utiliza el método de componentes demográficos, el cual integra de manera dinámica los nacimientos, las defunciones y la migración interna y externa. Dichos parámetros se ajustan según cohortes de edad y sexo, considerando tendencias históricas y supuestos de política pública.<br /><br />
+              <b>Ventajas de las proyecciones del DANE frente a una tasa de crecimiento simple:</b>
+              <ul style={{ margin: '8px 0 0 18px' }}>
+                <li><b>Modelos multivariados:</b> Incorporan simultáneamente natalidad, mortalidad y migración, en lugar de asumir un crecimiento constante.</li>
+                <li><b>Desagregación por edad y sexo:</b> Permiten proyectar estructuras poblacionales detalladas, no solo totales agregados, lo que es clave para la planeación social y económica.</li>
+                <li><b>Actualización periódica:</b> Se recalibran con nueva información censal y registros administrativos recientes, reflejando cambios en la dinámica demográfica.</li>
+                <li><b>Evitan sesgos:</b> A diferencia de una tasa compuesta calculada entre dos años, las proyecciones oficiales incorporan variaciones interanuales, migraciones coyunturales y choques demográficos.</li>
+                <li><b>Comparabilidad y validez:</b> Son el estándar oficial para el análisis demográfico, las políticas públicas y las comparaciones nacionales e internacionales.</li>
+                <li><b>Soporte metodológico:</b> Cuentan con documentación detallada y transparente, lo que facilita la auditoría y la replicabilidad de los resultados.</li>
+              </ul><br />
+              <b>Conclusión:</b><br />
+              Las proyecciones oficiales del DANE constituyen la fuente más confiable y robusta para el análisis y la planificación demográfica en Colombia. Su uso garantiza resultados alineados con estándares internacionales, minimiza riesgos de error o sesgo y sustenta políticas públicas, inversiones y estudios técnicos en bases metodológicas sólidas y transparentes. Optar por estas proyecciones es esencial para una gestión territorial eficiente, equitativa y basada en evidencia.<br />
             </div>
-            <ResponsiveContainer width="100%" height={320}>
-              {(() => {
-                // Obtener municipios únicos
-                const municipios = tasaRTable.map((row: any) => row["Municipio"] || row["municipio"] || row["MUNICIPIO"] || "").filter(Boolean);
-                // Años a graficar
-                const years = ["2025", "2028", "2030", "2035"];
-                // Colores para municipios
-                const barColors = ["#22c55e", "#06b6d4", "#eab308", "#ef4444", "#4f46e5", "#8b5cf6", "#f472b6", "#10b981", "#f59e42", "#6366f1"];
-                // Transformar datos: cada objeto es un año, con la población de cada municipio
-                const data = years.map((year) => {
-                  const entry: any = { year };
-                  tasaRTable.forEach((row: any) => {
-                    const municipio = row["Municipio"] || row["municipio"] || row["MUNICIPIO"] || "";
-                    entry[municipio] = Number(row[year] ?? row["Población " + year] ?? row["POBLACION " + year] ?? row["POBLACIÓN " + year] ?? 0);
-                  });
-                  return entry;
-                });
-                // Formato compacto con K para miles
-                function formatK(val: number | string): string {
-                  const n = Number(val);
-                  if (!isFinite(n)) return '—';
-                  if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + 'K';
-                  return n.toString();
-                }
-                return (
-                  <BarChart data={data} margin={{ top: 24, right: 24, left: 24, bottom: 32 }}>
-                    <XAxis dataKey="year">
-                      <Label value="Años" offset={24} position="bottom" style={{ fontSize: 14, fill: dark ? '#e0e7ff' : '#232b3e', fontWeight: 700 }} />
-                    </XAxis>
-                    <YAxis tick={{ fontSize: 11, fill: dark ? '#e0e7ff' : '#232b3e' }} tickFormatter={formatK} >
-                      <Label value="Población" angle={-90} position="insideLeft" style={{ fontSize: 14, fill: dark ? '#e0e7ff' : '#232b3e', fontWeight: 700 }} />
-                    </YAxis>
-                    <Tooltip
-                      contentStyle={{ background: dark ? '#232b3e' : '#fff', border: `1px solid #6366f1`, borderRadius: 8, fontWeight: 600, fontSize: 13 }}
-                      labelStyle={{ color: dark ? '#e0e7ff' : '#232b3e' }}
-                      itemStyle={{ color: dark ? '#e0e7ff' : '#232b3e' }}
-                      formatter={(value: any) => formatK(value)}
-                      separator=": "
-                    />
-                    <Legend wrapperStyle={{ fontSize: 12, color: dark ? '#e0e7ff' : '#232b3e' }} />
-                    {municipios.map((m, idx) => (
-                      <Bar key={m} dataKey={m} name={m} fill={barColors[idx % barColors.length]} radius={[6, 6, 0, 0]}
-                        label={({ x, y, width, value }) => {
-                          if (typeof x === 'number' && typeof y === 'number' && typeof width === 'number' && typeof value === 'number' && !isNaN(value) && value > 0) {
-                            return (
-                              <text x={x + width / 2} y={y - 8} fill={barColors[idx % barColors.length]} fontSize={13} fontWeight={700} textAnchor="middle">
-                                {formatK(value)}
-                              </text>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                    ))}
-                  </BarChart>
-                );
-              })()}
-            </ResponsiveContainer>
-          </div>
-        )}
           </div>
         )}
 
@@ -681,6 +751,7 @@ export default function DashboardVeredas() {
               if (!rows.length) {
                 return <div style={{ opacity: .7 }}>Sube un archivo Excel para comenzar.</div>;
               }
+              let kpis = null;
               if (!vereda && municipio && municipio !== ALL_VALUE && filteredRows.length) {
                 // KPIs por municipio (agregado)
                 const rowsToAggregate = filteredRows;
@@ -697,7 +768,7 @@ export default function DashboardVeredas() {
                   dpByYear[y] = totalArea > 0 ? popByYear[y] / totalArea : 0;
                 });
                 const calif = classifyDensity(dpByYear[dpYear]);
-                return (
+                kpis = (
                   <div className="kpis kpis-2x3">
                     <div className="kpi"><label>Municipio</label><div className="val">{municipio}</div></div>
                     <div className="kpi"><label>Área total (km²)</label><div className="val">{Number(totalArea).toLocaleString()}</div></div>
@@ -707,9 +778,8 @@ export default function DashboardVeredas() {
                     <div className="kpi"><label>Calificación densidad</label><div className="val">{calif}</div></div>
                   </div>
                 );
-              }
-              if (aggregatedRow) {
-                return (
+              } else if (aggregatedRow) {
+                kpis = (
                   <div className="kpis kpis-2x3">
                     <div className="kpi"><label>Municipio</label><div className="val">{aggregatedRow["Municipio"] ?? ""}</div></div>
                     <div className="kpi"><label>Área vereda (km²)</label><div className="val">{Number(aggregatedRow["Área vereda en km2"]).toLocaleString()}</div></div>
@@ -720,308 +790,105 @@ export default function DashboardVeredas() {
                   </div>
                 );
               }
-              return null;
+              return (
+                <>
+                  {kpis}
+                </>
+              );
             })()}
           </div>
+
         </div>
 
-        {/* Línea */}
-        <div ref={poblacionRef} className="card" style={{ marginTop: 16, boxShadow: '0 4px 24px 0 rgba(80,100,200,0.10)', opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto' }}>
-          <div className="card-hd">
-            Población proyectada por años
-            {municipio && municipio !== ALL_VALUE && vereda ? (
-              <span style={{ fontWeight: 400, fontSize: 15, marginLeft: 8, color: '#6366f1' }}>
-                ({municipio} – {vereda})
-              </span>
-            ) : municipio && municipio !== ALL_VALUE && !vereda ? (
-              <span style={{ fontWeight: 400, fontSize: 15, marginLeft: 8, color: '#6366f1' }}>
-                ({municipio} – Todas las veredas con relación a la cuenca)
-              </span>
-            ) : null}
-          </div>
-          {/* ...gráfica de población... */}
-          <div className="card-bd">
-            <div ref={lineRef} className="chart" style={{ position: 'relative', background: dark ? 'linear-gradient(135deg,#181e2a 60%,#232b3e 100%)' : 'linear-gradient(135deg,#f3f6fd 60%,#e0e7ff 100%)', boxShadow: '0 2px 16px 0 rgba(80,100,200,0.10)' }}>
+        <div className="card" style={{ marginTop: 24, marginBottom: 24, padding: 18 }}>
+          {/* Barras (ahora dentro de Información relevante, sin card extra) */}
+          <div ref={densidadRef} style={{ marginTop: 10, marginBottom: 0, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto' }}>
+            <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 10, color: '#34d399', letterSpacing: 0.2 }}>
+              Densidad poblacional por año (hab/km²)
               {municipio && municipio !== ALL_VALUE && vereda ? (
-                <div style={{
-                  position: 'absolute',
-                  top: 12,
-                  left: 0,
-                  width: '100%',
-                  textAlign: 'center',
-                  fontWeight: 700,
-                  fontSize: 18,
-                  color: '#6366f1',
-                  zIndex: 2,
-                  pointerEvents: 'none',
-                  textShadow: dark ? '0 2px 8px #181e2a' : '0 2px 8px #e0e7ff'
-                }}>
-                  {municipio} – {vereda}
-                </div>
+                <span style={{ fontWeight: 400, fontSize: 15, marginLeft: 8, color: '#34d399' }}>
+                  ({municipio} – {vereda})
+                </span>
+              ) : municipio && municipio !== ALL_VALUE && !vereda ? (
+                <span style={{ fontWeight: 400, fontSize: 15, marginLeft: 8, color: '#34d399' }}>
+                  ({municipio} – Todas las veredas con relación a la cuenca)
+                </span>
               ) : null}
-              {lineData.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={lineData} margin={{ top: 40, right: 24, left: 40, bottom: 32 }}>
-                    <defs>
-                      <linearGradient id="colorPop" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.9} />
-                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0.6} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke={gridColor} strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="year"
-                      stroke={axisColor}
-                      tick={{ fill: axisColor, fontSize: 13, fontWeight: 600 }}
-                      label={{
-                        value: 'Año',
-                        position: 'insideBottom',
-                        offset: -4,
-                        fill: axisColor,
-                        fontSize: 14,
-                        fontWeight: 700
-                      }}
-                    />
-                    <YAxis
-                      stroke={axisColor}
-                      tick={{ fill: axisColor, fontSize: 13, fontWeight: 600 }}
-                      tickFormatter={(v: number) => Math.round(v).toLocaleString()}
-                      label={{
-                        value: 'Población',
-                        angle: -90,
-                        position: 'insideLeft',
-                        fill: axisColor,
-                        fontSize: 14,
-                        fontWeight: 700,
-                        dx: -8
-                      }}
-                    />
-                    <Tooltip contentStyle={{ background: tooltipBg, border: `1px solid ${gridColor}`, borderRadius: 8, fontWeight: 600 }} labelStyle={{ color: tooltipText }} itemStyle={{ color: tooltipText }} formatter={(v: number) => Math.round(v).toLocaleString()} />
-                    {/* <Legend wrapperStyle={{ color: legendColor, fontWeight: 700, fontSize: 15 }} iconType="circle"/> */}
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      name="Población"
-                      stroke="url(#colorPop)"
-                      strokeWidth={3}
-                      dot={{ r: 6, fill: '#fff', stroke: '#6366f1', strokeWidth: 3, filter: 'drop-shadow(0 2px 6px #6366f155)' }}
-                      activeDot={{ r: 8, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
-                      isAnimationActive={true}
-                      animationDuration={900}
-                      label={({ x, y, value }) => {
-                        if (
-                          typeof x === 'number' &&
-                          typeof y === 'number' &&
-                          typeof value === 'number' &&
-                          !isNaN(value) &&
-                          value > 0
-                        ) {
+
+              <div className="chart" style={{ position: 'relative', background: dark ? 'linear-gradient(135deg,#232b3e 60%,#181e2a 100%)' : 'linear-gradient(135deg,#e0e7ff 60%,#f3f6fd 100%)', boxShadow: '0 1px 6px 0 rgba(80,100,200,0.07)', borderRadius: 10, padding: '18px 12px', minHeight: 320 }}>
+                {municipio && municipio !== ALL_VALUE && vereda ? (
+                  <div style={{
+                    position: 'absolute',
+                    top: 12,
+                    left: 0,
+                    width: '100%',
+                    textAlign: 'center',
+                    fontWeight: 700,
+                    fontSize: 18,
+                    color: '#34d399',
+                    zIndex: 2,
+                    pointerEvents: 'none',
+                    textShadow: dark ? '0 2px 8px #181e2a' : '0 2px 8px #e0e7ff'
+                  }}>
+                    {municipio} – {vereda}
+                  </div>
+                ) : null}
+                {barData.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={barData} margin={{ top: 40, right: 24, left: 40, bottom: 32 }}>
+                      <defs>
+                        <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#34d399" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.7} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke={gridColor} strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="year"
+                        stroke={axisColor}
+                        tick={{ fill: axisColor, fontSize: 13, fontWeight: 600 }}
+                        label={{
+                          value: 'Año',
+                          position: 'insideBottom',
+                          offset: -4,
+                          fill: axisColor,
+                          fontSize: 14,
+                          fontWeight: 700
+                        }}
+                      />
+                      <YAxis
+                        stroke={axisColor}
+                        tick={{ fill: axisColor, fontSize: 13, fontWeight: 600 }}
+                        label={{
+                          value: 'Densidad (hab/km²)',
+                          angle: -90,
+                          position: 'insideLeft',
+                          fill: axisColor,
+                          fontSize: 14,
+                          fontWeight: 700,
+                          dx: -8
+                        }}
+                      />
+                      <Tooltip contentStyle={{ background: tooltipBg, border: `1px solid ${gridColor}`, borderRadius: 8, fontWeight: 600 }} labelStyle={{ color: tooltipText }} itemStyle={{ color: tooltipText }} formatter={(v: number) => `${Math.round(Number(v)).toLocaleString()} hab/km²`} />
+                      {/* <Legend wrapperStyle={{ color: legendColor, fontWeight: 700, fontSize: 15 }} iconType="rect" /> */}
+                      <Bar dataKey="value" name="Densidad" fill="url(#colorBar)" radius={[8, 8, 0, 0]} isAnimationActive={true} animationDuration={900} label={({ x, y, width, value }) => {
+                        if (typeof x === 'number' && typeof y === 'number' && typeof width === 'number' && typeof value === 'number' && !isNaN(value) && value > 0) {
                           return (
-                            <text x={x} y={y - 12} fill="#6366f1" fontSize={13} fontWeight={700} textAnchor="middle">
-                              {value.toLocaleString()}
+                            <text x={x + width / 2} y={y - 8} fill="#06b6d4" fontSize={13} fontWeight={700} textAnchor="middle">
+                              {Math.round(value).toLocaleString()}
                             </text>
                           );
                         }
                         return null;
-                      }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : <div style={{ opacity: .6, textAlign: "center", paddingTop: 80 }}>Sin datos (selecciona vereda)</div>}
+                      }} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <div style={{ opacity: .6, textAlign: "center", paddingTop: 80 }}>Sin datos (selecciona vereda)</div>}
+              </div>
             </div>
-            {/* Análisis profundo debajo de la gráfica de población */}
-            {/* Descripción de la gráfica de población (debajo, personalizada) */}
-            <div ref={poblacionAnalisisRef} style={{ fontSize: 15, marginBottom: 12, marginTop: 16, lineHeight: 1.7 }}>
-              {municipio && municipio !== ALL_VALUE && (!vereda || vereda === "") && filteredRows.length ? (() => {
-                const rowsToAggregate = filteredRows;
-                const popByYear: Record<string, number> = {};
-                years.forEach((y) => {
-                  popByYear[y] = rowsToAggregate.reduce((acc, r) => acc + toNum(r[y]), 0);
-                });
-                const popActual = Math.round(popByYear[dpYear] || 0);
-                const popInicial = Math.round(popByYear[years[0]] || 0);
-                const popFinal = Math.round(popByYear[years[years.length - 1]] || 0);
-                const tendencia = popFinal > popInicial ? 'crecimiento' : (popFinal < popInicial ? 'disminución' : 'estabilidad');
-                const difAbs = popFinal - popInicial;
-                const difPorc = popInicial > 0 ? ((popFinal - popInicial) / popInicial) * 100 : 0;
-                return (
-                  <>
-                    {vereda ? (
-                      <>La población de la vereda <b>{vereda}</b> ({municipio}) pasó de <b>{popInicial.toLocaleString()}</b> habitantes en {years[0]} a <b>{popFinal.toLocaleString()}</b> en {years[years.length - 1]}. En {dpYear} se estima una población de <b>{popActual.toLocaleString()}</b>. La tendencia general es de <b>{tendencia}</b> {tendencia !== 'estabilidad' && (<>(<b>{difAbs >= 0 ? '+' : ''}{difAbs.toLocaleString()}</b>, {difPorc.toFixed(1)}%)</>)} durante el periodo.<br />Esto puede indicar {tendencia === 'crecimiento' ? 'mayor atracción o retención de habitantes' : tendencia === 'disminución' ? 'posible migración o envejecimiento poblacional' : 'un equilibrio demográfico'}.</>
-                    ) : (
-                      <>
-                        La población total del municipio <b>{municipio}</b> pasó de <b>{popInicial.toLocaleString()}</b> habitantes en {years[0]} a <b>{popFinal.toLocaleString()}</b> en {years[years.length - 1]}. En {dpYear} se estima una población de <b>{popActual.toLocaleString()}</b>.<br />
-                        <b>Tendencia global:</b> <b>{tendencia}</b> {tendencia !== 'estabilidad' && (<>(<b>{difAbs >= 0 ? '+' : ''}{difAbs.toLocaleString()}</b>, {difPorc.toFixed(1)}%)</>)} durante el periodo analizado.<br />
-                        {tendencia === 'crecimiento' && (
-                          <>Este crecimiento puede estar impulsado por migración, desarrollo económico o políticas locales exitosas. Es fundamental anticipar la demanda de vivienda, salud, educación y transporte, así como fortalecer la infraestructura básica.<br /></>
-                        )}
-                        {tendencia === 'disminución' && (
-                          <>La disminución poblacional puede deberse a migración hacia otras regiones, envejecimiento o falta de oportunidades. Esto puede afectar la sostenibilidad de servicios y la economía local. Se recomienda analizar causas y diseñar estrategias para retener y atraer población, especialmente joven.<br /></>
-                        )}
-                        {tendencia === 'estabilidad' && (
-                          <>La estabilidad poblacional facilita la planeación y el uso eficiente de recursos. Es una oportunidad para consolidar servicios y mejorar la calidad de vida de los habitantes.<br /></>
-                        )}
-                        <b>Recomendación:</b> {tendencia === 'crecimiento' ? 'Planificar el crecimiento urbano y rural, priorizando inversiones en servicios públicos y equipamiento social.' : tendencia === 'disminución' ? 'Implementar incentivos para el desarrollo local y la retención de población.' : 'Mantener el monitoreo y fortalecer la gestión municipal.'}
-                      </>
-                    )}
-                  </>
-                );
-              })() : municipio && municipio !== ALL_VALUE && vereda && aggregatedRow ? (() => {
-                // Descripción por vereda (igual que antes)
-                const rowsToAggregate = groupRows;
-                if (!rowsToAggregate.length) return null;
-                const popByYear: Record<string, number> = {};
-                years.forEach((y) => {
-                  popByYear[y] = rowsToAggregate.reduce((acc, r) => acc + toNum(r[y]), 0);
-                });
-                const popActual = Math.round(popByYear[dpYear] || 0);
-                const popInicial = Math.round(popByYear[years[0]] || 0);
-                const popFinal = Math.round(popByYear[years[years.length - 1]] || 0);
-                const tendencia = popFinal > popInicial ? 'crecimiento' : (popFinal < popInicial ? 'disminución' : 'estabilidad');
-                const difAbs = popFinal - popInicial;
-                const difPorc = popInicial > 0 ? ((popFinal - popInicial) / popInicial) * 100 : 0;
-                return (
-                  <>La población de la vereda <b>{vereda}</b> ({municipio}) pasó de <b>{popInicial.toLocaleString()}</b> habitantes en {years[0]} a <b>{popFinal.toLocaleString()}</b> en {years[years.length - 1]}. En {dpYear} se estima una población de <b>{popActual.toLocaleString()}</b>. La tendencia general es de <b>{tendencia}</b> {tendencia !== 'estabilidad' && (<>(<b>{difAbs >= 0 ? '+' : ''}{difAbs.toLocaleString()}</b>, {difPorc.toFixed(1)}%)</>)} durante el periodo.<br />Esto puede indicar {tendencia === 'crecimiento' ? 'mayor atracción o retención de habitantes' : tendencia === 'disminución' ? 'posible migración o envejecimiento poblacional' : 'un equilibrio demográfico'}.</>
-                );
-              })() : (
-                <>Selecciona un municipio y/o vereda para ver la proyección de población.</>
-              )}
-            </div>
-            {municipio && municipio !== ALL_VALUE && aggregatedRow ? (() => {
-              const isVereda = !!vereda;
-              const rowsToAggregate = isVereda ? groupRows : filteredRows;
-              if (!rowsToAggregate.length) return null;
-              const popByYear: Record<string, number> = {};
-              years.forEach((y) => {
-                popByYear[y] = rowsToAggregate.reduce((acc, r) => acc + toNum(r[y]), 0);
-              });
-              const popActual = Math.round(popByYear[dpYear] || 0);
-              const popInicial = Math.round(popByYear[years[0]] || 0);
-              const popFinal = Math.round(popByYear[years[years.length - 1]] || 0);
-              const tendencia = popFinal > popInicial ? 'crecimiento' : (popFinal < popInicial ? 'disminución' : 'estabilidad');
-              const difAbs = popFinal - popInicial;
-              const difPorc = popInicial > 0 ? ((popFinal - popInicial) / popInicial) * 100 : 0;
-              const rVals = rowsToAggregate.map((r) => toNum(r["R"]))
-                .filter((n) => Number.isFinite(n));
-              const rProm = rVals.length ? rVals.reduce((a, b) => a + b, 0) / rVals.length : 0;
-              let interpretacion = '';
-              if (tendencia === 'crecimiento') {
-                interpretacion = `Este crecimiento puede estar asociado a factores como migración interna, aumento de natalidad o mejoras en las condiciones de vida. Es importante planificar servicios públicos, infraestructura y educación para atender la demanda futura.`;
-              } else if (tendencia === 'disminución') {
-                interpretacion = `La disminución poblacional podría deberse a migración hacia zonas urbanas, envejecimiento de la población o falta de oportunidades económicas. Se recomienda analizar causas y considerar estrategias para retener población joven.`;
-              } else {
-                interpretacion = `La estabilidad poblacional indica un balance entre nacimientos, defunciones y migración. Es una oportunidad para fortalecer la calidad de vida y servicios existentes.`;
-              }
-              let recomendacion = '';
-              if (popActual > 1000) {
-                recomendacion = 'Se recomienda monitorear el crecimiento y actualizar periódicamente los datos para una mejor toma de decisiones.';
-              } else if (popActual < 200) {
-                recomendacion = 'La baja población puede dificultar la sostenibilidad de servicios; se sugiere evaluar políticas de incentivo o integración regional.';
-              } else {
-                recomendacion = 'Mantener seguimiento y promover el desarrollo local.';
-              }
-              return (
-                <div style={{ marginTop: 18, fontSize: 15, background: dark ? '#181e2a' : '#f3f6fd', borderRadius: 8, padding: '12px 18px', color: dark ? '#e5e7eb' : '#232b3e', boxShadow: '0 1px 6px 0 rgba(80,100,200,0.07)' }}>
-                  <strong>Resumen poblacional:</strong> En {dpYear}, {isVereda ? (<span>la vereda <b>{vereda}</b> del municipio <b>{municipio}</b></span>) : (<span>el municipio <b>{municipio}</b></span>)} cuenta con una población estimada de <b>{popActual.toLocaleString()}</b> habitantes.<br />
-                  Crecimiento promedio anual: <b>{(rProm * 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}%</b>.<br />
-                  Variación total: <b>{difAbs >= 0 ? '+' : ''}{difAbs.toLocaleString()} ({difPorc.toFixed(1)}%)</b> entre {years[0]} y {years[years.length - 1]}.<br />
-                  <span style={{ color: '#f59e42' }}>{interpretacion}</span><br />
-                  <span style={{ color: '#22c55e' }}>{recomendacion}</span>
-                </div>
-              );
-            })() : null}
-          </div>
-        </div>
 
-        {/* Barras */}
-        <div ref={densidadRef} className="card" style={{ marginTop: 16, opacity: !rows.length ? 0.5 : 1, pointerEvents: !rows.length ? 'none' : 'auto', boxShadow: '0 4px 24px 0 rgba(80,100,200,0.10)' }}>
-          <div className="card-hd">
-            Densidad poblacional por año (hab/km²)
-            {municipio && municipio !== ALL_VALUE && vereda ? (
-              <span style={{ fontWeight: 400, fontSize: 15, marginLeft: 8, color: '#34d399' }}>
-                ({municipio} – {vereda})
-              </span>
-            ) : municipio && municipio !== ALL_VALUE && !vereda ? (
-              <span style={{ fontWeight: 400, fontSize: 15, marginLeft: 8, color: '#34d399' }}>
-                ({municipio} – Todas las veredas con relación a la cuenca)
-              </span>
-            ) : null}
-          </div>
-          {/* ...gráfica de densidad... */}
-          <div className="card-bd">
-            <div ref={barRef} className="chart" style={{ position: 'relative', background: dark ? 'linear-gradient(135deg,#181e2a 60%,#232b3e 100%)' : 'linear-gradient(135deg,#f3f6fd 60%,#e0e7ff 100%)', boxShadow: '0 2px 16px 0 rgba(80,100,200,0.10)' }}>
-              {municipio && municipio !== ALL_VALUE && vereda ? (
-                <div style={{
-                  position: 'absolute',
-                  top: 12,
-                  left: 0,
-                  width: '100%',
-                  textAlign: 'center',
-                  fontWeight: 700,
-                  fontSize: 18,
-                  color: '#34d399',
-                  zIndex: 2,
-                  pointerEvents: 'none',
-                  textShadow: dark ? '0 2px 8px #181e2a' : '0 2px 8px #e0e7ff'
-                }}>
-                  {municipio} – {vereda}
-                </div>
-              ) : null}
-              {barData.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData} margin={{ top: 40, right: 24, left: 40, bottom: 32 }}>
-                    <defs>
-                      <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#34d399" stopOpacity={0.9} />
-                        <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.7} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke={gridColor} strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="year"
-                      stroke={axisColor}
-                      tick={{ fill: axisColor, fontSize: 13, fontWeight: 600 }}
-                      label={{
-                        value: 'Año',
-                        position: 'insideBottom',
-                        offset: -4,
-                        fill: axisColor,
-                        fontSize: 14,
-                        fontWeight: 700
-                      }}
-                    />
-                    <YAxis
-                      stroke={axisColor}
-                      tick={{ fill: axisColor, fontSize: 13, fontWeight: 600 }}
-                      label={{
-                        value: 'Densidad (hab/km²)',
-                        angle: -90,
-                        position: 'insideLeft',
-                        fill: axisColor,
-                        fontSize: 14,
-                        fontWeight: 700,
-                        dx: -8
-                      }}
-                    />
-                    <Tooltip contentStyle={{ background: tooltipBg, border: `1px solid ${gridColor}`, borderRadius: 8, fontWeight: 600 }} labelStyle={{ color: tooltipText }} itemStyle={{ color: tooltipText }} formatter={(v: number) => `${Math.round(Number(v)).toLocaleString()} hab/km²`} />
-                    {/* <Legend wrapperStyle={{ color: legendColor, fontWeight: 700, fontSize: 15 }} iconType="rect" /> */}
-                    <Bar dataKey="value" name="Densidad" fill="url(#colorBar)" radius={[8, 8, 0, 0]} isAnimationActive={true} animationDuration={900} label={({ x, y, width, value }) => {
-                      if (typeof x === 'number' && typeof y === 'number' && typeof width === 'number' && typeof value === 'number' && !isNaN(value) && value > 0) {
-                        return (
-                          <text x={x + width / 2} y={y - 8} fill="#06b6d4" fontSize={13} fontWeight={700} textAnchor="middle">
-                            {Math.round(value).toLocaleString()}
-                          </text>
-                        );
-                      }
-                      return null;
-                    }} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : <div style={{ opacity: .6, textAlign: "center", paddingTop: 80 }}>Sin datos (selecciona vereda)</div>}
-            </div>
-            {/* Análisis profundo debajo de la gráfica de densidad */}
             {/* Descripción de la gráfica de densidad (debajo, personalizada) */}
-            <div ref={densidadAnalisisRef} style={{ fontSize: 15, marginBottom: 12, marginTop: 16, lineHeight: 1.7 }}>
+            <div style={{ fontSize: 15, marginBottom: 12, marginTop: 16, lineHeight: 1.7 }}>
               {municipio && municipio !== ALL_VALUE && (!vereda || vereda === "") && filteredRows.length ? (() => {
                 const rowsToAggregate = filteredRows;
                 const totalArea = rowsToAggregate.reduce((acc, r) => acc + toNum(r["Área vereda en km2"]), 0);
@@ -1107,7 +974,7 @@ export default function DashboardVeredas() {
                 recomendacion = 'Mantener monitoreo y promover el desarrollo equilibrado.';
               }
               return (
-                <div style={{ marginTop: 18, fontSize: 15, background: dark ? '#181e2a' : '#f3f6fd', borderRadius: 8, padding: '12px 18px', color: dark ? '#e5e7eb' : '#232b3e', boxShadow: '0 1px 6px 0 rgba(80,100,200,0.07)' }}>
+                <div style={{ marginTop: 18, fontSize: 15, background: dark ? '#232b3e' : '#e0e7ff', borderRadius: 8, padding: '12px 18px', color: dark ? '#e5e7eb' : '#232b3e', boxShadow: '0 1px 6px 0 rgba(80,100,200,0.07)' }}>
                   <strong>Resumen de densidad:</strong> En {dpYear}, la densidad poblacional de {isVereda ? (<b>{vereda}</b>) : (<b>{municipio}</b>)} es de <b>{dpActual.toLocaleString()} hab/km²</b> (<b>{calif}</b>).<br />
                   Variación: <b>{dpFinal >= dpInicial ? '+' : ''}{(dpFinal - dpInicial).toLocaleString()}</b> hab/km² entre {years[0]} y {years[years.length - 1]}.<br />
                   <span style={{ color: '#f59e42' }}>{interpretacion}</span><br />
@@ -1115,11 +982,46 @@ export default function DashboardVeredas() {
                 </div>
               );
             })() : null}
-          </div>
-        </div>
 
-        <div style={{ fontSize: 12, opacity: .7, marginTop: 8 }}>
-          <strong>Notas:</strong> Los años válidos se detectan entre {YEAR_MIN} y {YEAR_MAX}. La población se muestra como <em>número entero</em>. La densidad se calcula como SUM(población)/SUM(área) para la vereda seleccionada.
+          </div>
+          <div style={{ fontSize: 12, opacity: .7, marginTop: 8 }}>
+            <strong>Notas:</strong> Los años válidos se detectan entre {YEAR_MIN} y {YEAR_MAX}.
+          </div>
+          {/* Explicación de por qué usamos la tasa R y no la proyección DANE */}
+          <div style={{
+            marginTop: 22,
+            fontSize: 16,
+            background: dark ? 'linear-gradient(90deg,#232b3e 60%,#181e2a 100%)' : 'linear-gradient(90deg,#e0e7ff 60%,#f3f6fd 100%)',
+            borderRadius: 12,
+            padding: '22px 28px',
+            color: dark ? '#e0e7ff' : '#232b3e',
+            boxShadow: '0 2px 12px 0 rgba(80,100,200,0.10)',
+            lineHeight: 1.8,
+            letterSpacing: 0.1
+          }}>
+            <div style={{ fontWeight: 800, fontSize: 18, color: '#6366f1', marginBottom: 8, letterSpacing: 0.5 }}>
+              ¿Por qué usamos la tasa R y no la proyección DANE?
+            </div>
+            <span style={{ display: 'block', marginBottom: 8 }}>
+              <b>El DANE no publica proyecciones oficiales de población a nivel de vereda ni para subconjuntos específicos de veredas asociadas a la cuenca.</b> Por lo tanto, no existe una estimación directa y oficial para estos territorios en los horizontes futuros requeridos para la planeación local y la gestión ambiental.
+            </span>
+            <span style={{ display: 'block', marginBottom: 8 }}>
+              Para suplir esta limitación, se calcula la <b>proyección veredal de población</b> aplicando la <b>tasa de crecimiento poblacional compuesta (R)</b>, estimada a partir de los datos municipales oficiales del DANE. <br />
+              <b>La tasa R se calculó usando un periodo año a año durante 10 años consecutivos</b>, lo que permite capturar la tendencia reciente y suavizar fluctuaciones anómalas. Este método asume que la dinámica de crecimiento de cada vereda es proporcional a la del municipio al que pertenece, permitiendo así obtener una aproximación robusta y replicable para el análisis territorial.
+            </span>
+            <span style={{ display: 'block', marginBottom: 8 }}>
+              <b>Ventajas técnicas:</b> <br />
+              <ul style={{ margin: '6px 0 6px 22px', color: dark ? '#a5b4fc' : '#3730a3', fontSize: 15 }}>
+                <li>Permite realizar proyecciones a futuro para veredas, donde no existen datos oficiales.</li>
+                <li>La tasa R se fundamenta en la evolución real observada en el municipio, integrando efectos de natalidad, mortalidad y migración.</li>
+                <li>La metodología es transparente, auditable y puede ser ajustada si se dispone de información adicional local.</li>
+                <li>Facilita la comparación entre veredas y municipios bajo un mismo marco analítico.</li>
+              </ul>
+            </span>
+            <span style={{ display: 'block', marginBottom: 0 }}>
+              <b>Nota:</b> Aunque esta aproximación no reemplaza una proyección oficial, es la alternativa más sólida y metodológicamente válida para la gestión y planificación en ausencia de datos DANE a nivel veredal.
+            </span>
+          </div>
         </div>
 
         {/* Explicación de fórmulas */}
@@ -1127,28 +1029,6 @@ export default function DashboardVeredas() {
           <div className="card-hd">📖 Explicación de las fórmulas</div>
           <div className="card-bd" style={{ fontSize: 15, lineHeight: 1.7 }}>
             <ol style={{ paddingLeft: 18 }}>
-              <li style={{ marginBottom: 12 }}>
-                <strong>Tasa de Crecimiento Poblacional (R)</strong><br />
-                La fórmula estándar es:<br />
-                <span style={{ display: 'block', margin: '8px 0', fontFamily: 'monospace', fontSize: 18 }}>
-                  R = (P<sub>f</sub> / P<sub>i</sub>)<sup>1/n</sup> - 1
-                </span>
-                Donde:<br />
-                <ul style={{ margin: '6px 0 6px 18px' }}>
-                  <li>P<sub>f</sub> = población final (2025)</li>
-                  <li>P<sub>i</sub> = población inicial (2018)</li>
-                  <li>n = número o intervalo de años</li>
-                </ul>
-                <span style={{ color: '#eab308', fontWeight: 500 }}>Esto nos da la <u>tasa anual compuesta de crecimiento poblacional</u>.</span><br />
-                <div style={{ margin: '14px 0', background: dark ? '#232b3e' : '#e0e7ff', borderRadius: 8, padding: 12, fontSize: 14, color: dark ? '#e0e7ff' : '#232b3e' }}>
-                  <b>¿Por qué usar la tasa de crecimiento poblacional compuesta?</b> La tasa compuesta (CAGR) refleja de manera precisa el crecimiento promedio anual de la población considerando la variabilidad interanual y los efectos acumulativos. Es preferible frente a tasas simples porque suaviza fluctuaciones, permite comparar periodos de distinta duración y es el estándar internacional para proyecciones demográficas. Así, se obtiene una visión más realista y comparable del crecimiento poblacional a lo largo del tiempo.
-                </div>
-                Con este <b>R</b> podemos proyectar hacia adelante:<br />
-                <span style={{ display: 'block', margin: '8px 0', fontFamily: 'monospace', fontSize: 18 }}>
-                  P<sub>t</sub> = P<sub>2025</sub> · (1 + R)<sup>t-2025</sup>
-                </span>
-                para t = 2026, 2027, ..., 2036.
-              </li>
               <li>
                 <strong>Densidad Poblacional (DP)</strong><br />
                 La fórmula es:<br />
@@ -1162,6 +1042,21 @@ export default function DashboardVeredas() {
                 </ul>
                 <span style={{ color: '#eab308', fontWeight: 500 }}>Esto permite ver cómo la <u>distribución poblacional</u> cambia en el tiempo, veredas de muy baja densidad podrían pasar a baja o media densidad según los umbrales.</span>
               </li>
+              <li style={{ marginTop: 18 }}>
+                <strong>Tasa de Crecimiento Poblacional (R)</strong><br />
+                La fórmula es:<br />
+                <span style={{ display: 'block', margin: '8px 0', fontFamily: 'monospace', fontSize: 18 }}>
+                  R = (ln(P<sub>f</sub>) - ln(P<sub>i</sub>)) / (t<sub>f</sub> - t<sub>i</sub>)
+                </span>
+                Donde:<br />
+                <ul style={{ margin: '6px 0 6px 18px' }}>
+                  <li>P<sub>f</sub> = población final</li>
+                  <li>P<sub>i</sub> = población inicial</li>
+                  <li>t<sub>f</sub> = año final</li>
+                  <li>t<sub>i</sub> = año inicial</li>
+                </ul>
+                <span style={{ color: '#06b6d4', fontWeight: 500 }}>Esta tasa permite proyectar la población de una vereda o municipio cuando no existen proyecciones oficiales específicas, como ocurre con las veredas de la cuenca.</span>
+              </li>
             </ol>
           </div>
         </div>
@@ -1171,9 +1066,11 @@ export default function DashboardVeredas() {
           <div className="card-hd">🔗 Fuentes y referencias</div>
           <div className="card-bd" style={{ fontSize: 14, lineHeight: 1.7 }}>
             <ul style={{ margin: 0, paddingLeft: 18 }}>
-              <li>
-                <a href="https://www.dane.gov.co/index.php/estadisticas-por-tema/demografia-y-poblacion/proyecciones-de-poblacion" target="_blank" rel="noopener noreferrer">
-                  DANE – Proyecciones de población (Colombia)
+              <li id="ref-dane-1" style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <span style={{ fontWeight: 700, fontSize: 15, color: '#6366f1', minWidth: 18, verticalAlign: 'super' }}>[1]</span>
+                <span style={{ marginRight: 2 }}>&#8226;</span>
+                <a href="https://www.dane.gov.co/files/censo2018/proyecciones-de-poblacion/Municipal/PPED-AreaMun-2018-2042_VP.xlsx" target="_blank" rel="noopener noreferrer">
+                  Tabla basada en proyecciones de población municipal para el periodo 2018-2042 con base en el CNPV 2018 del DANE
                 </a>
               </li>
               <li>
@@ -1198,6 +1095,6 @@ export default function DashboardVeredas() {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }

@@ -1,155 +1,512 @@
-// Utilidad para exportar contenido HTML a Word (.docx)
-// Usa la librería docx: https://www.npmjs.com/package/docx
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun, Table, TableRow, TableCell, WidthType, AlignmentType } from "docx";
+import {
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  AlignmentType,
+  ImageRun,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  BorderStyle,
+  Document,
+  Packer,
+  ExternalHyperlink
+} from "docx";
+export async function exportSectionsToWord(
+  {
+    tasaRTable,
+    filename,
+    poblacionChartImg,
+    densidadChartImg,
+    densidadBarChartImg,
+    densidadExport
+  }: {
+    tasaRTable: any[],
+    filename?: string,
+    poblacionChartImg?: string | null,
+    densidadChartImg?: string | null,
+    densidadBarChartImg?: string | null,
+    densidadExport?: {
+      municipio: string,
+      vereda: string | null,
+      dpYear: string,
+      years: string[],
+      dpActual: number,
+      dpInicial: number,
+      dpFinal: number,
+      calif: string,
+      tendenciaDP: string,
+      interpretacion: string,
+      recomendacion: string
+    }
+  }
+) {
+  // Helpers
+  function normalizeKey(key: string) {
+    return key.toLowerCase().replace(/[^a-z0-9]/gi, "");
+  }
+  function decodeBase64ToUint8Array(base64: string | undefined | null): Uint8Array {
+    if (!base64) return new Uint8Array();
+    const data = base64.split(",")[1] || base64;
+    return Uint8Array.from(atob(data), c => c.charCodeAt(0));
+  }
 
-
-interface ExportSectionsToWordParams {
-  infoKPIs?: Array<{ label: string; value: string }>;
-  infoHTML?: string;
-  poblacionHTML: string;
-  densidadHTML: string;
-  poblacionImg?: string; // base64 PNG
-  densidadImg?: string; // base64 PNG
-  pieImg?: string; // base64 PNG
-  poblacionImgSize?: { width: number; height: number };
-  densidadImgSize?: { width: number; height: number };
-  pieImgSize?: { width: number; height: number };
-  poblacionMunicipioImg?: string; // base64 PNG
-  poblacionMunicipioImgSize?: { width: number; height: number };
-  tasaRTable?: any[] | null;
-  filename?: string;
-}
-
-export async function exportSectionsToWord(params: ExportSectionsToWordParams) {
-  // Paleta de colores igual que en el dashboard
-  const rowColors = [
-    '22c55e', // verde
-    '06b6d4', // cyan
-    'eab308', // amarillo
-    'ef4444', // rojo
-    '4f46e5', // azul
-    '8b5cf6', // violeta
-    'f472b6', // rosa
-    '10b981', // verde esmeralda
-    'f59e42', // naranja
-    '6366f1', // azul indigo
+  const dashboardFont = "Arial";
+  // --- Texto de análisis y metodología ---
+  const analisisParagraphs = [
+    // Heading: Horizontes
+    new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      alignment: AlignmentType.LEFT,
+      spacing: { before: 300, after: 120 },
+      children: [
+        new TextRun({
+          text: "Horizontes de proyección poblacional",
+          bold: true,
+          size: 32,
+          font: dashboardFont,
+          color: "000000"
+        })
+      ]
+    }),
+    // Intro horizontes
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 120 },
+      children: [
+        new TextRun({
+          text: "La tabla presenta estimaciones de población municipal para tres horizontes temporales, cada uno con implicaciones estratégicas distintas. Para el conjunto de municipios analizados, los porcentajes proyectados de crecimiento poblacional acumulado en cada horizonte son los siguientes: Fuente de datos: Proyecciones oficiales del DANE basadas en el Censo Nacional de Población y Vivienda 2018 (CNPV 2018, periodo 2018-2042)[1].",
+          font: dashboardFont,
+          size: 22
+        })
+      ]
+    }),
+    // Corto plazo
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 80 },
+      indent: { left: 640 },
+      children: [
+        new TextRun({
+          text: "• Corto plazo (2025-2028) – Crecimiento acumulado: 4,95%. ",
+          bold: true,
+          font: dashboardFont,
+          size: 22
+        }),
+        new TextRun({
+          text: "Este horizonte permite anticipar cambios demográficos inmediatos, facilitando la asignación eficiente de recursos, la planificación de servicios públicos y la atención de necesidades urgentes. Es clave para la gestión operativa y la toma de decisiones de corto alcance en los gobiernos locales.",
+          font: dashboardFont,
+          size: 22
+        })
+      ]
+    }),
+    // Mediano plazo
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 80 },
+      indent: { left: 640 },
+      children: [
+        new TextRun({
+          text: "• Mediano plazo (2025-2030) – Crecimiento acumulado: 7,96%. ",
+          bold: true,
+          font: dashboardFont,
+          size: 22
+        }),
+        new TextRun({
+          text: "Ofrece una visión intermedia que apoya la formulación de políticas públicas, el desarrollo de proyectos de infraestructura y la implementación de programas sociales que requieren maduración y evaluación a medio término. Este horizonte resulta esencial para ajustar estrategias en función de tendencias emergentes y cambios estructurales en la dinámica poblacional.",
+          font: dashboardFont,
+          size: 22
+        })
+      ]
+    }),
+    // Largo plazo
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 120 },
+      indent: { left: 640 },
+      children: [
+        new TextRun({
+          text: "• Largo plazo (2025-2035) – Crecimiento acumulado: 14,69%. ",
+          bold: true,
+          font: dashboardFont,
+          size: 22
+        }),
+        new TextRun({
+          text: "Proporciona una perspectiva de futuro necesaria para la planeación territorial, el desarrollo sostenible y la definición de visiones de largo alcance. Permite anticipar retos asociados al envejecimiento poblacional, las migraciones, la expansión urbana y la creciente demanda de servicios, contribuyendo así a la construcción de territorios resilientes y equitativos.",
+          font: dashboardFont,
+          size: 22
+        })
+      ]
+    }),
+    // Heading Proyecciones oficiales del DANE
+    new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      alignment: AlignmentType.LEFT,
+      spacing: { before: 300, after: 120 },
+      children: [
+        new TextRun({
+          text: "Proyecciones oficiales del DANE",
+          bold: true,
+          size: 32,
+          font: dashboardFont,
+          color: "000000"
+        })
+      ]
+    }),
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 120 },
+      children: [
+        new TextRun({
+          text: "El Departamento Administrativo Nacional de Estadística (DANE) publica proyecciones oficiales de población municipal para cada año entre 2018 y 2042. Estas estimaciones se fundamentan en el Censo Nacional de Población y Vivienda 2018 (CNPV 2018) y en la aplicación de modelos demográficos avanzados. Particularmente, se utiliza el método de componentes demográficos, el cual integra de manera dinámica los nacimientos, las defunciones y la migración interna y externa. Dichos parámetros se ajustan según cohortes de edad y sexo, considerando tendencias históricas y supuestos de política pública.",
+          font: dashboardFont,
+          size: 22
+        })
+      ]
+    }),
+    // Heading Ventajas
+    new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      alignment: AlignmentType.LEFT,
+      spacing: { before: 300, after: 120 },
+      children: [
+        new TextRun({
+          text: "Ventajas de las proyecciones del DANE frente a una tasa de crecimiento simple",
+          bold: true,
+          size: 32,
+          font: dashboardFont,
+          color: "000000"
+        })
+      ]
+    }),
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 40 },
+      indent: { left: 640 },
+      children: [
+        new TextRun({ text: "• ", font: dashboardFont, size: 22 }),
+        new TextRun({ text: "Modelos multivariados: ", bold: true, font: dashboardFont, size: 22 }),
+        new TextRun({ text: "Incorporan simultáneamente natalidad, mortalidad y migración, en lugar de asumir un crecimiento constante.", font: dashboardFont, size: 22 })
+      ]
+    }),
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 40 },
+      indent: { left: 640 },
+      children: [
+        new TextRun({ text: "• ", font: dashboardFont, size: 22 }),
+        new TextRun({ text: "Desagregación por edad y sexo: ", bold: true, font: dashboardFont, size: 22 }),
+        new TextRun({ text: "Permiten proyectar estructuras poblacionales detalladas, no solo totales agregados, lo que es clave para la planeación social y económica.", font: dashboardFont, size: 22 })
+      ]
+    }),
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 40 },
+      indent: { left: 640 },
+      children: [
+        new TextRun({ text: "• ", font: dashboardFont, size: 22 }),
+        new TextRun({ text: "Actualización periódica: ", bold: true, font: dashboardFont, size: 22 }),
+        new TextRun({ text: "Se recalibran con nueva información censal y registros administrativos recientes, reflejando cambios en la dinámica demográfica.", font: dashboardFont, size: 22 })
+      ]
+    }),
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 40 },
+      indent: { left: 640 },
+      children: [
+        new TextRun({ text: "• ", font: dashboardFont, size: 22 }),
+        new TextRun({ text: "Evitan sesgos: ", bold: true, font: dashboardFont, size: 22 }),
+        new TextRun({ text: "A diferencia de una tasa compuesta calculada entre dos años, las proyecciones oficiales incorporan variaciones interanuales, migraciones coyunturales y choques demográficos.", font: dashboardFont, size: 22 })
+      ]
+    }),
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 40 },
+      indent: { left: 640 },
+      children: [
+        new TextRun({ text: "• ", font: dashboardFont, size: 22 }),
+        new TextRun({ text: "Comparabilidad y validez: ", bold: true, font: dashboardFont, size: 22 }),
+        new TextRun({ text: "Son el estándar oficial para el análisis demográfico, las políticas públicas y las comparaciones nacionales e internacionales.", font: dashboardFont, size: 22 })
+      ]
+    }),
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 120 },
+      indent: { left: 640 },
+      children: [
+        new TextRun({ text: "• ", font: dashboardFont, size: 22 }),
+        new TextRun({ text: "Soporte metodológico: ", bold: true, font: dashboardFont, size: 22 }),
+        new TextRun({ text: "Cuentan con documentación detallada y transparente, lo que facilita la auditoría y la replicabilidad de los resultados.", font: dashboardFont, size: 22 })
+      ]
+    }),
+    // Heading Conclusión
+    new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      alignment: AlignmentType.LEFT,
+      spacing: { before: 300, after: 120 },
+      children: [
+        new TextRun({
+          text: "Conclusión",
+          bold: true,
+          size: 32,
+          font: dashboardFont,
+          color: "000000"
+        })
+      ]
+    }),
+    new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: 120 },
+      children: [
+        new TextRun({
+          text: "Las proyecciones oficiales del DANE constituyen la fuente más confiable y robusta para el análisis y la planificación demográfica en Colombia. Su uso garantiza resultados alineados con estándares internacionales, minimiza riesgos de error o sesgo y sustenta políticas públicas, inversiones y estudios técnicos en bases metodológicas sólidas y transparentes. Optar por estas proyecciones es esencial para una gestión territorial eficiente, equitativa y basada en evidencia.",
+          font: dashboardFont,
+          size: 22
+        })
+      ]
+    }),
+    // Page break so the siguiente sección (densidad) inicia en nueva página
+    new Paragraph({
+      pageBreakBefore: true,
+      children: [new TextRun({ text: "" })]
+    })
   ];
-  const {
-    infoKPIs = [],
-    infoHTML = "",
-    poblacionHTML = "",
-    densidadHTML = "",
-    poblacionImg,
-    densidadImg,
-    poblacionImgSize = { width: 600, height: 320 },
-    densidadImgSize = { width: 600, height: 320 },
-    pieImg,
-    pieImgSize = { width: 600, height: 320 },
-    poblacionMunicipioImg,
-    poblacionMunicipioImgSize = { width: 600, height: 320 },
-    tasaRTable = null,
-    filename = "ficha.docx"
-  } = params;
 
-  // Limitar el ancho máximo de imagen en Word (en px)
-  const MAX_IMG_WIDTH = 600; // igual que las otras imágenes
-  const MAX_IMG_HEIGHT = 600;
-  function getScaledSize(size: { width: number; height: number }) {
-    let { width, height } = size;
-    const widthRatio = MAX_IMG_WIDTH / width;
-    const heightRatio = MAX_IMG_HEIGHT / height;
-    const scale = Math.min(widthRatio, heightRatio, 1);
-    return {
-      width: Math.round(width * scale),
-      height: Math.round(height * scale)
-    };
-  }
+  // Paleta de colores para filas
+  const rowColors = [
+    "22c55e",
+    "06b6d4",
+    "eab308",
+    "ef4444",
+    "4f46e5",
+    "8b5cf6",
+    "f472b6",
+    "10b981",
+    "f59e42",
+    "6366f1"
+  ];
 
-  // Convierte HTML a texto plano (simple)
-  function htmlToPlainText(html: string): string {
-    const tmp = document.createElement("div");
-    tmp.innerHTML = html;
-    return tmp.innerText || tmp.textContent || "";
-  }
-
-  // Construir tabla de tasas de crecimiento si hay datos
+  // --- Construcción de la tabla (si hay datos) ---
   let tasaRTableDocx: Table | null = null;
+
   if (Array.isArray(tasaRTable) && tasaRTable.length > 0) {
-    // Normalizar encabezados igual que en el dashboard
-    const normalize = (str = "") => str.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/[^\w\d]+/g, "").toLowerCase();
-    const sample = tasaRTable[0] || {};
+    // Filtrar filas que contengan el texto del título para evitar duplicados
+    const TITULO = "Tabla basada en proyecciones de población municipal para el periodo 2018-2042 con base en el CNPV 2018 del DANE";
+    const filteredTable = (tasaRTable as Array<Record<string, unknown>>).filter(row => {
+      return !Object.values(row).some(val => typeof val === 'string' && val.trim() === TITULO);
+    });
+
+    const sample = (filteredTable[0] ?? {}) as Record<string, unknown>;
     const keys = Object.keys(sample);
-    const findKey = (target: string) => keys.find(k => normalize(k).includes(normalize(target)));
-    const keyMun = findKey("municipio") || keys[0];
-    const keyTasaR = findKey("tasa r") || findKey("crecimiento r") || findKey("r") || null;
-    const keyPob2025 = keys.find(k => normalize(k).includes("2025"));
-    const keyPob2028 = keys.find(k => normalize(k).includes("2028"));
-    const keyPob2030 = keys.find(k => normalize(k).includes("2030"));
-    const keyPob2035 = keys.find(k => normalize(k).includes("2035"));
-    // Encabezados
+
+    const findKey = (target: string) =>
+      keys.find((k) => normalizeKey(k).includes(normalizeKey(target)));
+
+    const keyMun = findKey("municipio") ?? keys[0];
+    const keyPob2025 = keys.find((k) => normalizeKey(k).includes("2025"));
+    const keyPob2028 = keys.find((k) => normalizeKey(k).includes("2028"));
+    const keyPob2030 = keys.find((k) => normalizeKey(k).includes("2030"));
+    const keyPob2035 = keys.find((k) => normalizeKey(k).includes("2035"));
+
     const headers = [
-      "Municipio", "Población 2025", "Población 2028", "Población 2030", "Población 2035", "Tasa de crecimiento R (%)"
+      "Municipio",
+      "Población 2025",
+      "Población 2028",
+      "Población 2030",
+      "Población 2035",
     ];
-    // Filas
-    const rowsDocx = [
-      new TableRow({
-        children: headers.map(h => new TableCell({
-          children: [new Paragraph({ children: [new TextRun({ text: h, bold: true })] })],
-          width: { size: 20, type: WidthType.PERCENTAGE },
-          shading: { fill: "e0e7ff" },
-        }))
-      }),
-      ...tasaRTable.map((row, idx) => {
-        let tasaR = '—';
-        if (keyTasaR) {
-          const val = row[keyTasaR];
-          if (typeof val === 'number') tasaR = (val * 100).toFixed(2) + '%';
-          else if (typeof val === 'string' && /^-?\d+(\.\d+)?$/.test(val)) tasaR = (parseFloat(val) * 100).toFixed(2) + '%';
-        }
-        let pob2025 = keyPob2025 ? row[keyPob2025] : undefined;
-        let pob2028 = keyPob2028 ? row[keyPob2028] : undefined;
-        let pob2030 = keyPob2030 ? row[keyPob2030] : undefined;
-        let pob2035 = keyPob2035 ? row[keyPob2035] : undefined;
-        const colorFila = rowColors[idx % rowColors.length];
-        return new TableRow({
+
+    const headerRow = new TableRow({
+      children: headers.map(
+        (h) =>
+          new TableCell({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: h,
+                    bold: true,
+                    color: "374151",
+                    size: 24,
+                    font: dashboardFont,
+                  }),
+                ],
+              }),
+            ],
+            width: { size: 20, type: WidthType.PERCENTAGE },
+            shading: { fill: "e0e7ff" },
+          })
+      ),
+    });
+
+    const getCellValue = (
+      row: Record<string, unknown>,
+      key: string | undefined
+    ) => {
+      if (!key) return "—";
+      const val = row[key];
+      if (val === undefined || val === null || val === "") return "—";
+      const num = Number(val);
+      return Number.isFinite(num)
+        ? num.toLocaleString("es-CO")
+        : String(val);
+    };
+
+    const dataRows = (filteredTable as Array<Record<string, unknown>>).map(
+      (row, idx) =>
+        new TableRow({
           children: [
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: row[keyMun] || '—', color: colorFila })] })], width: { size: 20, type: WidthType.PERCENTAGE } }),
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: pob2025 !== undefined ? Number(pob2025).toLocaleString() : '—', color: colorFila })] })], width: { size: 16, type: WidthType.PERCENTAGE } }),
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: pob2028 !== undefined ? Number(pob2028).toLocaleString() : '—', color: colorFila })] })], width: { size: 16, type: WidthType.PERCENTAGE } }),
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: pob2030 !== undefined ? Number(pob2030).toLocaleString() : '—', color: colorFila })] })], width: { size: 16, type: WidthType.PERCENTAGE } }),
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: pob2035 !== undefined ? Number(pob2035).toLocaleString() : '—', color: colorFila })] })], width: { size: 16, type: WidthType.PERCENTAGE } }),
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: tasaR, color: colorFila })] })], width: { size: 16, type: WidthType.PERCENTAGE } }),
-          ]
-        });
-      })
-    ];
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: String(row?.[keyMun] ?? "—"),
+                      color: rowColors[idx % rowColors.length],
+                      size: 22,
+                      font: dashboardFont,
+                    }),
+                  ],
+                }),
+              ],
+              width: { size: 20, type: WidthType.PERCENTAGE },
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: getCellValue(row, keyPob2025),
+                      color: rowColors[idx % rowColors.length],
+                      size: 22,
+                      font: dashboardFont,
+                    }),
+                  ],
+                }),
+              ],
+              width: { size: 20, type: WidthType.PERCENTAGE },
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: getCellValue(row, keyPob2028),
+                      color: rowColors[idx % rowColors.length],
+                      size: 22,
+                      font: dashboardFont,
+                    }),
+                  ],
+                }),
+              ],
+              width: { size: 20, type: WidthType.PERCENTAGE },
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: getCellValue(row, keyPob2030),
+                      color: rowColors[idx % rowColors.length],
+                      size: 22,
+                      font: dashboardFont,
+                    }),
+                  ],
+                }),
+              ],
+              width: { size: 20, type: WidthType.PERCENTAGE },
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: getCellValue(row, keyPob2035),
+                      color: rowColors[idx % rowColors.length],
+                      size: 22,
+                      font: dashboardFont,
+                    }),
+                  ],
+                }),
+              ],
+              width: { size: 20, type: WidthType.PERCENTAGE },
+            }),
+          ],
+        })
+    );
+
     tasaRTableDocx = new Table({
-      rows: rowsDocx,
+      rows: [headerRow, ...dataRows],
       width: { size: 100, type: WidthType.PERCENTAGE },
       alignment: AlignmentType.CENTER,
       borders: {
-        top: { size: 1, color: "bfcfff", style: "single" },
-        bottom: { size: 1, color: "bfcfff", style: "single" },
-        left: { size: 1, color: "bfcfff", style: "single" },
-        right: { size: 1, color: "bfcfff", style: "single" },
-        insideHorizontal: { size: 1, color: "bfcfff", style: "single" },
-        insideVertical: { size: 1, color: "bfcfff", style: "single" }
-      }
+        top: { size: 1, color: "bfcfff", style: BorderStyle.SINGLE },
+        bottom: { size: 1, color: "bfcfff", style: BorderStyle.SINGLE },
+        left: { size: 1, color: "bfcfff", style: BorderStyle.SINGLE },
+        right: { size: 1, color: "bfcfff", style: BorderStyle.SINGLE },
+        insideHorizontal: { size: 1, color: "bfcfff", style: BorderStyle.SINGLE },
+        insideVertical: { size: 1, color: "bfcfff", style: BorderStyle.SINGLE },
+      },
     });
   }
 
+  // --- Imagen (gráfica) ---
+  const imageParagraph: Paragraph[] = [];
+  if (poblacionChartImg) {
+    // Título para la imagen de la gráfica de población
+    imageParagraph.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        alignment: AlignmentType.LEFT,
+        spacing: { before: 300, after: 120 },
+        children: [
+          new TextRun({
+            text: "Gráfica de proyección poblacional",
+            bold: true,
+            size: 32,
+            font: dashboardFont,
+            color: "7c3aed"
+          })
+        ]
+      })
+    );
+    const bytes = decodeBase64ToUint8Array(poblacionChartImg);
+    if (bytes && bytes.byteLength > 0) {
+      const img = new window.Image();
+      img.src = poblacionChartImg;
+      let imgWidth = 650;
+      let imgHeight = Math.round(imgWidth * 400 / 820);
+      img.onload = () => {
+        imgWidth = img.naturalWidth;
+        imgHeight = img.naturalHeight;
+      };
+
+      imageParagraph.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+          children: [
+            new ImageRun({
+              data: bytes,
+              transformation: { width: imgWidth, height: imgHeight },
+              type: "png",
+            }),
+          ],
+        })
+      );
+    }
+  }
+
+  // --- Documento ---
   const doc = new Document({
     styles: {
       default: {
-        document: {
-          run: {
-            font: "Segoe UI",
-            size: 24,
-          },
-          paragraph: {
-            spacing: { after: 120 },
-          },
-        },
+        document: { run: { font: dashboardFont, size: 22 } },
+        heading1: { run: { font: dashboardFont } },
+        heading2: { run: { font: dashboardFont } },
+        heading3: { run: { font: dashboardFont } },
+        listParagraph: { run: { font: dashboardFont } },
       },
     },
     sections: [
@@ -157,254 +514,438 @@ export async function exportSectionsToWord(params: ExportSectionsToWordParams) {
         properties: {},
         children: [
           new Paragraph({
-            text: "Información relevante",
-            heading: HeadingLevel.HEADING_2,
-            spacing: { after: 200 },
-            alignment: "left"
-          }),
-          ...(Array.isArray(infoKPIs) && infoKPIs.length
-            ? infoKPIs.map(kpi => [
-                new Paragraph({
-                  text: kpi.label,
-                  heading: HeadingLevel.HEADING_2,
-                  spacing: { after: 40 },
-                }),
-                new Paragraph({
-                  text: kpi.value,
-                  spacing: { after: 120 },
-                })
-              ]).flat()
-            : [new Paragraph(htmlToPlainText(infoHTML || ""))]),
-          new Paragraph({ text: "" }),
-          ...(tasaRTableDocx ? [
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: "Tabla 1. Tasas de crecimiento poblacional y proyección por municipio",
-                    bold: true,
-                    size: 28,
-                    color: "374151"
-                  })
-                ],
-                heading: HeadingLevel.HEADING_2,
-                spacing: { after: 80 },
-                alignment: "center"
-              }),
-              tasaRTableDocx,
-              new Paragraph({ text: "Tasas calculadas con CAGR: r = (Pf / Pi)^1/n − 1, usando Pi = población 2025 y Pf en 2028/2030/2035.", spacing: { after: 120 }, alignment: "left" }),            
-              ...(poblacionMunicipioImg ? [
-                new Paragraph({ text: "" }),
-                new Paragraph({
-                  children: [
-                    new ImageRun({
-                      data: poblacionMunicipioImg && poblacionMunicipioImg.startsWith("data:image") ? Uint8Array.from(atob(poblacionMunicipioImg.split(",")[1]), c => c.charCodeAt(0)) : new Uint8Array(),
-                      transformation: getScaledSize(poblacionMunicipioImgSize),
-                      type: "png"
-                    })
-                  ],
-                  spacing: { after: 400 },
-                })
-              ] : [])
-          ] : []),
-          new Paragraph({
-            text: "Población proyectada por años",
             heading: HeadingLevel.HEADING_1,
-            spacing: { before: 300, after: 200 },
-          }),
-          new Paragraph({
-            text: htmlToPlainText(poblacionHTML),
-            alignment: "both"
-          }),
-          ...(poblacionImg ? [
-            new Paragraph({ text: "" }),
-            new Paragraph({
-              children: [
-                new ImageRun({
-                  data: poblacionImg && poblacionImg.startsWith("data:image") ? Uint8Array.from(atob(poblacionImg.split(",")[1]), c => c.charCodeAt(0)) : new Uint8Array(),
-                  transformation: getScaledSize(poblacionImgSize),
-                  type: "png"
-                })
-              ],
-              spacing: { after: 200 },
-            })
-          ] : []),
-          new Paragraph({
-            text: "Densidad poblacional por año (hab/km²)",
-            heading: HeadingLevel.HEADING_1,
-            spacing: { before: 300, after: 200 },
-          }),
-          new Paragraph({
-            text: htmlToPlainText(densidadHTML),
-            alignment: "both"
-          }),
-          ...(densidadImg ? [
-            new Paragraph({ text: "" }),
-            new Paragraph({
-              children: [
-                new ImageRun({
-                  data: densidadImg && densidadImg.startsWith("data:image") ? Uint8Array.from(atob(densidadImg.split(",")[1]), c => c.charCodeAt(0)) : new Uint8Array(),
-                  transformation: getScaledSize(densidadImgSize),
-                  type: "png"
-                })
-              ],
-              spacing: { after: 200 },
-            })
-          ] : []),
-
-          // Pie chart sección
-          new Paragraph({
-            text: "Distribución de calificación de densidad (general)",
-            heading: HeadingLevel.HEADING_1,
-            spacing: { before: 300, after: 200 },
-          }),
-          ...(pieImg ? [
-            new Paragraph({ text: "" }),
-            new Paragraph({
-              children: [
-                new ImageRun({
-                  data: pieImg && pieImg.startsWith("data:image") ? Uint8Array.from(atob(pieImg.split(",")[1]), c => c.charCodeAt(0)) : new Uint8Array(),
-                  transformation: getScaledSize(pieImgSize),
-                  type: "png"
-                })
-              ],
-              spacing: { after: 200 },
-            })
-          ] : []),
-
-          // Explicación de las fórmulas
-          new Paragraph({
-            text: "Explicación de las fórmulas",
-            heading: HeadingLevel.HEADING_1,
-            spacing: { before: 300, after: 200 },
-          }),
-          // Justificación de la tasa compuesta
-          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 300 },
             children: [
               new TextRun({
-                text: '¿Por qué usar la tasa de crecimiento poblacional compuesta? ',
-                bold: true
+                text:
+                  "Tabla basada en proyecciones de población municipal para el periodo 2018-2042 con base en el CNPV 2018 del DANE",
+                bold: true,
+                size: 32,
+                font: dashboardFont,
+                color: "7c3aed"
               }),
-              new TextRun('La tasa compuesta (CAGR) refleja de manera precisa el crecimiento promedio anual de la población considerando la variabilidad interanual y los efectos acumulativos. Es preferible frente a tasas simples porque suaviza fluctuaciones, permite comparar periodos de distinta duración y es el estándar internacional para proyecciones demográficas. Así, se obtiene una visión más realista y comparable del crecimiento poblacional a lo largo del tiempo.')
             ],
-            spacing: { after: 180 },
-          }),
-          new Paragraph({
-            text: 'Tasa de Crecimiento Poblacional (R):',
-            heading: HeadingLevel.HEADING_2,
-            spacing: { after: 80 },
-            alignment: "left"
-          }),
-          new Paragraph({
-            text: 'R = (Pf / Pi)^1/n − 1',
-            spacing: { after: 80 },
-            alignment: "left"
-          }),
-          new Paragraph({
-            text: 'Donde: Pf = población final, Pi = población inicial, n = número de años. Esto da la tasa anual compuesta de crecimiento poblacional.',
-            spacing: { after: 120 },
-            alignment: "left"
-          }),
-          new Paragraph({
-            text: "Proyección poblacional:",
-            heading: HeadingLevel.HEADING_2,
-            spacing: { after: 80 },
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: "P", font: "Consolas", size: 28, bold: true }),
-              new TextRun({ text: "t", subScript: true, font: "Consolas", size: 22 }),
-              new TextRun({ text: " = P", font: "Consolas", size: 28, bold: true }),
-              new TextRun({ text: "2025", subScript: true, font: "Consolas", size: 22 }),
-              new TextRun({ text: " · (1 + R)", font: "Consolas", size: 28, bold: true }),
-              new TextRun({ text: "t-2025", superScript: true, font: "Consolas", size: 22 }),
-            ],
-            alignment: "center",
-            spacing: { after: 40 },
-          }),
-          new Paragraph({
-            text: "Para t = 2026, 2027, ..., 2036.",
-            alignment: "both",
-            spacing: { after: 80 },
-          }),
-          new Paragraph({
-            text: "Densidad Poblacional (DP):",
-            heading: HeadingLevel.HEADING_2,
-            spacing: { after: 80 },
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: "DP", font: "Consolas", size: 28, bold: true }),
-              new TextRun({ text: "t", subScript: true, font: "Consolas", size: 22 }),
-              new TextRun({ text: " = ", font: "Consolas", size: 28, bold: true }),
-              new TextRun({ text: "P", font: "Consolas", size: 28, bold: true }),
-              new TextRun({ text: "t", subScript: true, font: "Consolas", size: 22 }),
-              new TextRun({ text: " / Área", font: "Consolas", size: 28, bold: true }),
-            ],
-            alignment: "center",
-            spacing: { after: 40 },
-          }),
-          new Paragraph({
-            text: "Donde: Pt = población proyectada del año t, Área = área fija de la vereda/municipio (en km²). Esto permite ver cómo la distribución poblacional cambia en el tiempo.",
-            alignment: "both",
-            spacing: { after: 120 },
           }),
 
-          // Fuentes y referencias
+          ...(tasaRTableDocx
+            ? [
+              tasaRTableDocx,
+              new Paragraph({
+                spacing: { after: 200 },
+                children: [new TextRun({ text: "" })],
+              }),
+            ]
+            : [
+              new Paragraph({
+                spacing: { after: 200 },
+                children: [
+                  new TextRun({
+                    text: "No hay datos disponibles.",
+                    font: dashboardFont,
+                  }),
+                ],
+              }),
+            ]),
+
+          // Imagen de la gráfica de población
+          ...imageParagraph,
+
+          // Sección de análisis/metodología
+          ...analisisParagraphs,
+
+
+          // Sección de densidad (pie)
+          ...(densidadChartImg ? [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 300, after: 120 },
+              children: [
+                new TextRun({
+                  text: "Distribución de calificación de densidad (Municipios relacionados a la cuenca)",
+                  font: dashboardFont,
+                  bold: true,
+                  size: 28,
+                  color: "4f46e5"
+                })
+              ]
+            }),
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 200 },
+              children: [
+                new ImageRun({
+                  data: Uint8Array.from(atob(densidadChartImg.split(",")[1]), c => c.charCodeAt(0)),
+                  transformation: { width: 600, height: 230 },
+                  type: 'png'
+                })
+              ]
+            }),
+
+          ] : []),
+
+          // Gráfica de barras de densidad poblacional por año
+          ...(densidadBarChartImg ? [
+            new Paragraph({
+              alignment: AlignmentType.JUSTIFIED,
+              spacing: { before: 300, after: 120 },
+              children: [
+                new TextRun({
+                  text: "Densidad poblacional por año (hab/km²)",
+                  font: dashboardFont,
+                  bold: true,
+                  size: 32,
+                  color: "7c3aed"
+                })
+              ]
+            }),
+            // Imagen barras densidad
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 160 },
+              children: densidadBarChartImg ? [
+                new ImageRun({
+                  data: Uint8Array.from(atob(densidadBarChartImg.split(",")[1]), c => c.charCodeAt(0)),
+                  transformation: { width: 650, height: 270 },
+                  type: 'png'
+                })
+              ] : []
+            }),
+            // Texto analítico densidad (mejor visualización en bloques y viñetas de métricas)
+            ...(densidadExport ? (() => {
+              const { municipio, vereda, dpYear, years, dpActual, dpInicial, dpFinal, calif, tendenciaDP, interpretacion, recomendacion } = densidadExport;
+              const variacionAbs = dpFinal - dpInicial;
+              const variacionPct = dpInicial ? (variacionAbs / dpInicial) * 100 : 0;
+              const encabezadoMunicipio = vereda ? `La densidad poblacional de la vereda ${vereda} (${municipio})` : `La densidad poblacional agregada del municipio ${municipio}`;
+              return [
+                new Paragraph({
+                  alignment: AlignmentType.JUSTIFIED,
+                  // Mayor separación después del párrafo introductorio
+                  spacing: { after: 80 },
+                  children: [
+                    new TextRun({ text: encabezadoMunicipio + ' fue de ', font: dashboardFont, size: 22 }),
+                    new TextRun({ text: dpInicial.toLocaleString(), bold: true, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: ` hab/km² en ${years[0]} y de `, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: dpFinal.toLocaleString(), bold: true, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: ` hab/km² en ${years[years.length - 1]}. Para ${dpYear}, la densidad es de `, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: dpActual.toLocaleString(), bold: true, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: ' hab/km² (', font: dashboardFont, size: 22 }),
+                    new TextRun({ text: calif, bold: true, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: ').', font: dashboardFont, size: 22 })
+                  ]
+                }),
+                // Métricas en formato de viñetas
+                new Paragraph({
+                  alignment: AlignmentType.JUSTIFIED,
+                  spacing: { after: 80, before: 80 },
+                  indent: { left: 640 },
+                  children: [
+                    new TextRun({ text: '• Densidad inicial: ', bold: true, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: `${dpInicial.toLocaleString()} hab/km² (${years[0]})`, font: dashboardFont, size: 22 })
+                  ]
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.JUSTIFIED,
+                  spacing: { after: 55 },
+                  indent: { left: 640 },
+                  children: [
+                    new TextRun({ text: '• Densidad final: ', bold: true, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: `${dpFinal.toLocaleString()} hab/km² (${years[years.length - 1]})`, font: dashboardFont, size: 22 })
+                  ]
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.JUSTIFIED,
+                  spacing: { after: 55 },
+                  indent: { left: 640 },
+                  children: [
+                    new TextRun({ text: '• Densidad año seleccionado: ', bold: true, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: `${dpActual.toLocaleString()} hab/km² (${dpYear})`, font: dashboardFont, size: 22 })
+                  ]
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.JUSTIFIED,
+                  spacing: { after: 55 },
+                  indent: { left: 640 },
+                  children: [
+                    new TextRun({ text: '• Variación absoluta: ', bold: true, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: `${variacionAbs >= 0 ? '+' : ''}${variacionAbs.toLocaleString()} hab/km²`, font: dashboardFont, size: 22 })
+                  ]
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.JUSTIFIED,
+                  spacing: { after: 55 },
+                  indent: { left: 640 },
+                  children: [
+                    new TextRun({ text: '• Variación relativa: ', bold: true, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: (dpInicial ? (variacionPct >= 0 ? '+' : '') + variacionPct.toFixed(2) + '%' : '—'), font: dashboardFont, size: 22 })
+                  ]
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.JUSTIFIED,
+                  spacing: { after: 55 },
+                  indent: { left: 640 },
+                  children: [
+                    new TextRun({ text: '• Tendencia: ', bold: true, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: tendenciaDP, font: dashboardFont, size: 22, bold: true })
+                  ]
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.JUSTIFIED,
+                  spacing: { after: 80 },
+                  children: [
+                    new TextRun({ text: 'Interpretación: ', bold: true, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: interpretacion, font: dashboardFont, size: 22 })
+                  ]
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.JUSTIFIED,
+                  spacing: { after: 170, before: 170 },
+                  children: [
+                    new TextRun({ text: 'Recomendación: ', bold: true, font: dashboardFont, size: 22 }),
+                    new TextRun({ text: recomendacion, font: dashboardFont, size: 22 })
+                  ]
+                })
+              ];
+            })() : []),
+
+            // Explicación de por qué usamos la tasa R y no la proyección DANE
+            new Paragraph({
+              heading: HeadingLevel.HEADING_2,
+              alignment: AlignmentType.JUSTIFIED,
+              spacing: { before: 300, after: 120 },
+              children: [
+                new TextRun({
+                  text: "¿Por qué usamos la tasa R y no la proyección DANE?",
+                  bold: true,
+                  size: 28,
+                  font: dashboardFont
+                })
+              ]
+            }),
+            new Paragraph({
+              alignment: AlignmentType.JUSTIFIED,
+              spacing: { after: 80 },
+              children: [
+                new TextRun({
+                  text: "El DANE no publica proyecciones oficiales de población a nivel de vereda ni para subconjuntos específicos de veredas asociadas a la cuenca. Por lo tanto, no existe una estimación directa y oficial para estos territorios en los horizontes futuros requeridos para la planeación local y la gestión ambiental.",
+                  font: dashboardFont,
+                  size: 22
+                })
+              ]
+            }),
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 80 },
+              children: [
+                new TextRun({
+                  text: "Para suplir esta limitación, se calcula la proyección veredal de población aplicando la tasa de crecimiento poblacional compuesta (R), estimada a partir de los datos municipales oficiales del DANE. La tasa R se calculó usando un periodo año a año durante 10 años consecutivos, lo que permite capturar la tendencia reciente y suavizar fluctuaciones anómalas. Este método asume que la dinámica de crecimiento de cada vereda es proporcional a la del municipio al que pertenece, permitiendo así obtener una aproximación robusta y replicable para el análisis territorial.",
+                  font: dashboardFont,
+                  size: 22
+                })
+              ]
+            }),
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 80 },
+              children: [
+                new TextRun({
+                  text: "Ventajas técnicas:",
+                  bold: true,
+                  font: dashboardFont,
+                  size: 24
+                })
+              ]
+            }),
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 40 },
+              children: [
+                new TextRun({ text: "", size: 1 })
+              ]
+            }),
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 30 },
+              indent: { left: 640 },
+              children: [
+                new TextRun({ text: "• Permite realizar proyecciones a futuro para veredas, donde no existen datos oficiales.", font: dashboardFont, size: 22 })
+              ]
+            }),
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 30 },
+              indent: { left: 640 },
+              children: [
+                new TextRun({ text: "• La tasa R se fundamenta en la evolución real observada en el municipio, integrando efectos de natalidad, mortalidad y migración.", font: dashboardFont, size: 22 })
+              ]
+            }),
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 30 },
+              indent: { left: 640 },
+              children: [
+                new TextRun({ text: "• La metodología es transparente, auditable y puede ser ajustada si se dispone de información adicional local.", font: dashboardFont, size: 22 })
+              ]
+            }),
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 40 },
+              indent: { left: 640 },
+              children: [
+                new TextRun({ text: "• Facilita la comparación entre veredas y municipios bajo un mismo marco analítico.", font: dashboardFont, size: 22 })
+              ]
+            }),
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 80 },
+              children: [
+                new TextRun({
+                  text: "Nota: Aunque esta aproximación no reemplaza una proyección oficial, es la alternativa más sólida y metodológicamente válida para la gestión y planificación en ausencia de datos DANE a nivel veredal.",
+                  italics: true,
+                  font: dashboardFont,
+                  size: 20,
+                  color: "6366f1"
+                })
+              ]
+            })
+          ] : []),
+
+          // Sección Fuentes y referencias
           new Paragraph({
-            text: "Fuentes y referencias",
-            heading: HeadingLevel.HEADING_1,
-            spacing: { before: 300, after: 200 },
-          }),
-          // Referencias en formato APA, presentadas como lista con sangría
-          new Paragraph({
-            text: "Referencias:",
             heading: HeadingLevel.HEADING_2,
-            spacing: { after: 80 },
-          }),
-          ...[
-            {
-              text: "Departamento Administrativo Nacional de Estadística (DANE). (2023). Proyecciones de población.",
-              link: "https://www.dane.gov.co/index.php/estadisticas-por-tema/demografia-y-poblacion/proyecciones-de-poblacion"
-            },
-            {
-              text: "Departamento Administrativo Nacional de Estadística (DANE). (2023). Densidad de población.",
-              link: "https://geoportal.dane.gov.co/servicios/atlas-estadistico/src/Tomo_I_Demografico/2.2.3.-densidad-de-la-poblaci%C3%B3n-en-colombia.html"
-            },
-            {
-              text: "United Nations, Department of Economic and Social Affairs, Population Division. (2022). World Population Prospects 2022.",
-              link: "https://population.un.org/wpp/"
-            },
-            {
-              text: "United Nations Statistics Division. (2022). Demographic Yearbook.",
-              link: "https://unstats.un.org/unsd/demographic-social/products/dyb/index.cshtml"
-            }
-          ].map(ref => new Paragraph({
-            bullet: { level: 0 },
+            alignment: AlignmentType.LEFT,
+            spacing: { before: 300, after: 120 },
             children: [
-              new TextRun({ text: ref.text, break: 1 }),
-              new TextRun({ text: ref.link, color: "4472C4", underline: {}, break: 1 })
-            ],
-            alignment: "both",
-            spacing: { after: 40 },
-            indent: { left: 720, hanging: 360 },
-            style: "ListParagraph"
-          })),
-          new Paragraph({
-            text: "Para mayor rigor, consulta la documentación oficial del DANE y organismos internacionales de estadística poblacional.",
-            alignment: "both",
-            spacing: { after: 120 },
+              new TextRun({
+                text: "Fuentes y referencias",
+                bold: true,
+                size: 32,
+                font: dashboardFont,
+                color: "000000"
+              })
+            ]
           }),
+          // Referencia [1]
+          // Referencias con hipervínculos clicables
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 40 },
+            indent: { left: 640 },
+            children: [
+              new TextRun({ text: "• ", font: dashboardFont, size: 22 }),
+              new ExternalHyperlink({
+                link: "https://www.dane.gov.co/files/censo2018/proyecciones-de-poblacion/Municipal/PPED-AreaMun-2018-2042_VP.xlsx",
+                children: [
+                  new TextRun({
+                    text: "Tabla basada en proyecciones de población municipal para el periodo 2018-2042 con base en el CNPV 2018 del DANE",
+                    font: dashboardFont,
+                    size: 22,
+                    color: "1155CC",
+                    underline: {}
+                  })
+                ]
+              }),
+              new TextRun({ text: " [1].", bold: true, font: dashboardFont, size: 22 })
+            ]
+          }),
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 40 },
+            indent: { left: 640 },
+            children: [
+              new TextRun({ text: "• ", font: dashboardFont, size: 22 }),
+              new ExternalHyperlink({
+                link: "https://geoportal.dane.gov.co/servicios/atlas-estadistico/src/Tomo_I_Demografico/2.2.3.-densidad-de-la-poblaci%C3%B3n-en-colombia.html",
+                children: [
+                  new TextRun({
+                    text: "DANE – Densidad de población (Colombia)",
+                    font: dashboardFont,
+                    size: 22,
+                    color: "1155CC",
+                    underline: {}
+                  })
+                ]
+              }),
+              new TextRun({ text: ".", font: dashboardFont, size: 22 })
+            ]
+          }),
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 40 },
+            indent: { left: 640 },
+            children: [
+              new TextRun({ text: "• ", font: dashboardFont, size: 22 }),
+              new ExternalHyperlink({
+                link: "https://population.un.org/wpp/",
+                children: [
+                  new TextRun({
+                    text: "United Nations – World Population Prospects (WPP)",
+                    font: dashboardFont,
+                    size: 22,
+                    color: "1155CC",
+                    underline: {}
+                  })
+                ]
+              }),
+              new TextRun({ text: ".", font: dashboardFont, size: 22 })
+            ]
+          }),
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 120 },
+            indent: { left: 640 },
+            children: [
+              new TextRun({ text: "• ", font: dashboardFont, size: 22 }),
+              new ExternalHyperlink({
+                link: "https://unstats.un.org/unsd/demographic-social/products/dyb/index.cshtml",
+                children: [
+                  new TextRun({
+                    text: "United Nations – Demographic Yearbook",
+                    font: dashboardFont,
+                    size: 22,
+                    color: "1155CC",
+                    underline: {}
+                  })
+                ]
+              }),
+              new TextRun({ text: ".", font: dashboardFont, size: 22 })
+            ]
+          }),
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 80 },
+            children: [
+              new TextRun({
+                text: "Para mayor rigor, consulta la documentación oficial del DANE y organismos internacionales de estadística poblacional.",
+                italics: true,
+                font: dashboardFont,
+                size: 20,
+                color: "6366f1"
+              })
+            ]
+          }),
+
         ],
       },
     ],
   });
 
+  // --- Exportar a .docx ---
   const blob = await Packer.toBlob(doc);
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(a.href);
+
+  // Descarga en navegador (si hay DOM)
+  if (typeof document !== "undefined") {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || "ficha.docx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // Si estás en Node/SSR y quieres devolver el blob/buffer:
+  // return blob;
 }
